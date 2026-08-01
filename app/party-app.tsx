@@ -200,8 +200,8 @@ export function PartyApp() {
     <main className="app-shell">
       <header className="site-header">
         <button className="brand-button" onClick={() => { setMode("guest"); setGuestStep("details"); }}>
-          <span className="brand-mark">M</span>
-          <span>{data.event.name}</span>
+          <span className="brand-mark">MR</span>
+          <span><small>Private experience</small>{data.event.name}</span>
         </button>
         <nav className="mode-nav" aria-label="Preview area">
           <button className={mode === "guest" ? "nav-pill active" : "nav-pill"} onClick={() => setMode("guest")}>Guest</button>
@@ -212,17 +212,20 @@ export function PartyApp() {
       {mode === "guest" ? (
         <section className="guest-page">
           <div className="guest-hero">
-            <p className="kicker">{data.event.date} · {data.event.location}</p>
-            <h1>Your night,<br /><em>reserved.</em></h1>
+            <div className="hero-orbit" aria-hidden="true"><span>MR</span></div>
+            <p className="kicker">Invitation access · {data.event.location}</p>
+            <h1>Midnight<br /><em>Reserve</em></h1>
+            <span className="hero-signature">Your night, reserved.</span>
             <p>{data.event.message}</p>
+            <div className="event-meta"><span>{data.event.date}</span><i /> <span>{data.event.location}</span></div>
           </div>
           <div className="progress-track" aria-label={`Step ${progress + 1} of 4`}>
             {stepOrder.map((step, index) => <span key={step} className={index <= progress ? "complete" : ""} />)}
           </div>
 
           {guestStep === "details" && (
-            <form className="surface guest-card" onSubmit={beginGuest}>
-              <div className="section-title"><div><span className="step-label">Step 1 of 4</span><h2>Let’s start with you</h2><p>We use these details to match your payment.</p></div></div>
+            <form className="surface guest-card entry-card" onSubmit={beginGuest}>
+              <div className="section-title"><div><span className="step-label">Welcome, VIP guest</span><h2>Your reservation starts here</h2><p>Enter the name and number we should use to match your Mobile Money payment.</p></div></div>
               <label>Full name<input value={guestName} onChange={(event) => setGuestName(event.target.value)} required /></label>
               <label>Phone number<input value={guestPhone} onChange={(event) => { setGuestPhone(event.target.value); setPhoneConfirmed(false); }} inputMode="tel" required /></label>
               <label className="check-row"><input type="checkbox" checked={phoneConfirmed} onChange={(event) => setPhoneConfirmed(event.target.checked)} /><span>Yes, this number is correct</span></label>
@@ -231,14 +234,17 @@ export function PartyApp() {
           )}
 
           {guestStep === "packages" && (
-            <div className="guest-card">
+            <div className="guest-card menu-view">
               <div className="section-title split"><div><span className="step-label">Step 2 of 4</span><h2>Choose your package</h2><p>Your selection will be held for 30 minutes.</p></div><span className="timer">30:00</span></div>
+              <div className="filter-pills" aria-label="Package filters"><span className="active">All packages</span><span>Best sellers</span><span>Limited</span></div>
               <div className="package-list">
                 {data.packages.filter((pkg) => pkg.active).map((pkg) => (
-                  <button className="surface package-row" key={pkg.id} onClick={() => choosePackage(pkg)} disabled={remaining(pkg) === 0}>
-                    <span className="package-art">{pkg.initials}</span>
-                    <span className="package-copy"><strong>{pkg.name}</strong><span>{pkg.description}</span></span>
-                    <span className="package-price"><strong>{money(pkg.price)}</strong><span className={remaining(pkg) <= 3 ? "stock low" : "stock"}>{remaining(pkg) ? `${remaining(pkg)} left` : "Sold out"}</span></span>
+                  <button className={`surface package-row package-${pkg.id}`} key={pkg.id} onClick={() => choosePackage(pkg)} disabled={remaining(pkg) === 0}>
+                    <span className="package-visual" aria-hidden="true"><span className="bottle bottle-one" /><span className="bottle bottle-two" /><span className="package-monogram">{pkg.initials}</span></span>
+                    <span className="package-overlay">
+                      <span className="package-copy"><small>Drinks experience</small><strong>{pkg.name}</strong><span>{pkg.description}</span></span>
+                      <span className="package-price"><strong>{money(pkg.price)}</strong><span className={remaining(pkg) <= 3 ? "stock low" : "stock"}>{remaining(pkg) ? `${remaining(pkg)} left` : "Sold out"}</span></span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -247,7 +253,8 @@ export function PartyApp() {
           )}
 
           {guestStep === "payment" && selectedPackage && (
-            <form className="surface guest-card" onSubmit={submitPayment}>
+            <form className="surface guest-card payment-card" onSubmit={submitPayment}>
+              <div className={`selected-package-banner package-${selectedPackage.id}`}><span className="package-monogram">{selectedPackage.initials}</span><div><small>Your selection</small><strong>{selectedPackage.name}</strong></div><b>{money(selectedPackage.price)}</b></div>
               <div className="section-title split"><div><span className="step-label">Step 3 of 4</span><h2>Pay with Mobile Money</h2><p>Send the exact amount, then submit your transaction.</p></div><span className="timer">29:42</span></div>
               <div className="network-tabs">
                 {data.paymentDestinations.filter((item) => item.enabled).map((item) => <button type="button" key={item.network} className={network === item.network ? "network active" : "network"} onClick={() => setNetwork(item.network)}>{item.network}</button>)}
@@ -272,6 +279,12 @@ export function PartyApp() {
               <div className="status-actions"><button className="primary-button" onClick={() => { setMode("organizer"); setSignedIn(true); setAdminTab("orders"); setSelectedOrderId(currentOrder.id); }}>Preview organizer check</button><button className="secondary-button">WhatsApp organizer</button></div>
             </div>
           )}
+          <nav className="mobile-dock" aria-label="Guest navigation">
+            <button className={guestStep === "details" ? "active" : ""} onClick={() => setGuestStep("details")}><span>⌂</span>Home</button>
+            <button className={guestStep === "packages" ? "active" : ""} onClick={() => setGuestStep("packages")}><span>◇</span>Packages</button>
+            <button className={guestStep === "payment" ? "active" : ""} onClick={() => selectedPackage && setGuestStep("payment")}><span>✦</span>Reserve</button>
+            <button className={guestStep === "status" ? "active" : ""} onClick={() => currentOrder && setGuestStep("status")}><span>○</span>Status</button>
+          </nav>
         </section>
       ) : (
         <section className="organizer-page">

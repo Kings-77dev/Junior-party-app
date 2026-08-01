@@ -8,14 +8,14 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   const title = "Midnight Reserve";
-  const description = "Mobile-first party drinks reservations with manual Mobile Money verification.";
+  const description = "Reserve a premium drinks package for Midnight Reserve and submit your Mobile Money payment details securely.";
   return {
     metadataBase: new URL(origin),
     title,
     description,
     manifest: "/manifest.webmanifest",
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
-    openGraph: { title, description, images: [{ url: `${origin}/og.png`, width: 1792, height: 896, alt: "Midnight Reserve — Your night, reserved." }] },
+    openGraph: { title, description, images: [{ url: `${origin}/og.png`, width: 1774, height: 887, alt: "Midnight Reserve — Your night, reserved." }] },
     twitter: { card: "summary_large_image", title, description, images: [`${origin}/og.png`] },
   };
 }
