@@ -313,3 +313,165 @@ input:focus, textarea:focus { border-color: rgba(231,201,142,.55); }
   .package-overlay { padding: 1rem; }
   .package-copy span { max-width: 190px; }
 }
+
+/* Glass layer — soft translucency inspired by the reference, grounded in the night palette */
+.app-shell { position: relative; overflow: hidden; }
+.app-shell::before {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 8% 30%, rgba(208, 162, 85, .13), transparent 19rem),
+    radial-gradient(circle at 92% 52%, rgba(74, 94, 102, .13), transparent 22rem),
+    radial-gradient(circle at 50% 92%, rgba(186, 126, 55, .11), transparent 25rem);
+  filter: saturate(120%);
+}
+.site-header, .guest-page, .organizer-page { position: relative; z-index: 1; }
+
+.site-header {
+  border-bottom: 1px solid rgba(255, 231, 186, .13);
+  background: linear-gradient(110deg, rgba(18, 18, 17, .68), rgba(7, 8, 8, .48));
+  box-shadow: inset 0 -1px rgba(255,255,255,.025), 0 12px 38px rgba(0,0,0,.18);
+  backdrop-filter: blur(30px) saturate(145%);
+  -webkit-backdrop-filter: blur(30px) saturate(145%);
+}
+
+.surface {
+  border: 1px solid rgba(255, 232, 190, .16);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.026) 42%, rgba(0,0,0,.12)),
+    rgba(15, 16, 16, .6);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    inset 0 -1px 0 rgba(0,0,0,.2),
+    0 30px 90px rgba(0,0,0,.36);
+  backdrop-filter: blur(28px) saturate(138%);
+  -webkit-backdrop-filter: blur(28px) saturate(138%);
+}
+
+.entry-card, .payment-card, .status-card, .login-card, .settings-card,
+.package-editor, .stat, .order-queue, .verification-card {
+  overflow: hidden;
+}
+.entry-card::after, .payment-card::after, .status-card::after,
+.login-card::after, .settings-card::after, .package-editor::after,
+.stat::after, .order-queue::after, .verification-card::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(120deg, rgba(255,255,255,.075), transparent 23%, transparent 76%, rgba(214,167,87,.035));
+  mask-image: linear-gradient(#000, transparent 38%);
+}
+
+.entry-card, .payment-card, .status-card, .login-card,
+.settings-card, .package-editor, .stat, .order-queue, .verification-card { position: relative; }
+.entry-card > *, .payment-card > *, .status-card > *, .login-card > *,
+.settings-card > *, .package-editor > *, .stat > *, .order-queue > *, .verification-card > * { position: relative; z-index: 1; }
+
+input, textarea {
+  border-color: rgba(255,236,200,.14);
+  background: linear-gradient(120deg, rgba(255,255,255,.055), rgba(255,255,255,.015));
+  box-shadow: inset 0 1px rgba(255,255,255,.045);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.filter-pills span, .network, .secondary-button, .admin-tabs button {
+  border-color: rgba(255,235,196,.14);
+  background: rgba(255,255,255,.045);
+  box-shadow: inset 0 1px rgba(255,255,255,.055);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+}
+.filter-pills .active, .network.active, .admin-tabs button.active {
+  border-color: rgba(255,240,210,.3);
+  background: linear-gradient(135deg, rgba(239,211,156,.96), rgba(169,125,62,.92));
+  box-shadow: inset 0 1px rgba(255,255,255,.4), 0 8px 22px rgba(112,77,27,.16);
+}
+
+.package-row {
+  border-color: rgba(255,234,193,.17);
+  box-shadow: inset 0 1px rgba(255,255,255,.1), 0 24px 70px rgba(0,0,0,.38);
+}
+.package-row::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  content: "";
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(125deg, rgba(255,255,255,.11), transparent 18%, transparent 68%);
+  mask-image: linear-gradient(#000, transparent 46%);
+}
+.package-overlay {
+  inset: auto .6rem .6rem;
+  padding: 1rem;
+  border: 1px solid rgba(255,235,196,.16);
+  border-radius: 17px;
+  background: linear-gradient(120deg, rgba(20,20,19,.67), rgba(7,8,8,.45));
+  box-shadow: inset 0 1px rgba(255,255,255,.075), 0 12px 35px rgba(0,0,0,.26);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+}
+.package-monogram {
+  border-color: rgba(255,238,204,.27);
+  background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(8,8,8,.28));
+  box-shadow: inset 0 1px rgba(255,255,255,.1), 0 8px 25px rgba(0,0,0,.2);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.selected-package-banner {
+  border-color: rgba(255,237,201,.16);
+  background:
+    radial-gradient(circle at 16% 20%, rgba(195,137,62,.32), transparent 28%),
+    linear-gradient(120deg, rgba(255,255,255,.085), rgba(255,255,255,.02));
+  box-shadow: inset 0 1px rgba(255,255,255,.1), 0 16px 45px rgba(0,0,0,.2);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.payment-summary, .status-grid { border: 0; padding: 0; }
+.payment-summary div, .status-grid div {
+  padding: .85rem;
+  border: 1px solid rgba(255,235,196,.11);
+  border-radius: 13px;
+  background: linear-gradient(120deg, rgba(255,255,255,.055), rgba(255,255,255,.012));
+  box-shadow: inset 0 1px rgba(255,255,255,.04);
+}
+.notice {
+  border-color: rgba(237,201,133,.2);
+  background: linear-gradient(120deg, rgba(207,160,73,.13), rgba(255,255,255,.025));
+  box-shadow: inset 0 1px rgba(255,255,255,.05);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+}
+
+.mobile-dock {
+  padding: .46rem;
+  border-color: rgba(255,236,200,.22);
+  background: linear-gradient(120deg, rgba(40,40,37,.66), rgba(8,9,9,.58));
+  box-shadow: inset 0 1px rgba(255,255,255,.13), 0 20px 58px rgba(0,0,0,.55);
+  backdrop-filter: blur(34px) saturate(150%);
+  -webkit-backdrop-filter: blur(34px) saturate(150%);
+}
+.mobile-dock button { transition: color .2s ease, background .2s ease, transform .2s ease; }
+.mobile-dock button.active {
+  color: #171109;
+  border: 1px solid rgba(255,247,225,.32);
+  background: linear-gradient(140deg, rgba(239,214,167,.96), rgba(171,128,66,.88));
+  box-shadow: inset 0 1px rgba(255,255,255,.44), 0 9px 24px rgba(111,75,25,.2);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 700px) {
+  .surface { backdrop-filter: blur(24px) saturate(135%); -webkit-backdrop-filter: blur(24px) saturate(135%); }
+  .guest-card { border-radius: 25px; }
+  .package-row, .package-row:first-child { border-radius: 25px; }
+  .package-overlay { inset: auto .7rem .7rem; border-radius: 19px; }
+  .mobile-dock { border-radius: 27px; }
+}
