@@ -240,10 +240,12 @@ export function PartyApp() {
               <div className="package-list">
                 {data.packages.filter((pkg) => pkg.active).map((pkg) => (
                   <button className={`surface package-row package-${pkg.id}`} key={pkg.id} onClick={() => choosePackage(pkg)} disabled={remaining(pkg) === 0}>
-                    <span className="package-visual" aria-hidden="true"><span className="bottle bottle-one" /><span className="bottle bottle-two" /><span className="package-monogram">{pkg.initials}</span></span>
+                    <span className="package-visual" aria-hidden="true"><span className="bottle bottle-one" /><span className="bottle bottle-two" /><span className="package-favorite">♡</span></span>
                     <span className="package-overlay">
+                      <span className="package-monogram">{pkg.initials}</span>
                       <span className="package-copy"><small>Drinks experience</small><strong>{pkg.name}</strong><span>{pkg.description}</span></span>
                       <span className="package-price"><strong>{money(pkg.price)}</strong><span className={remaining(pkg) <= 3 ? "stock low" : "stock"}>{remaining(pkg) ? `${remaining(pkg)} left` : "Sold out"}</span></span>
+                      <span className="package-action-arrow" aria-hidden="true">↗</span>
                     </span>
                   </button>
                 ))}
