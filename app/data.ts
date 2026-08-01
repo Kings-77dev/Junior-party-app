@@ -4,6 +4,8 @@ export type OrderStatus =
   | "awaiting"
   | "paid"
   | "unverified"
+  | "resubmit"
+  | "cancelled"
   | "expired";
 
 export type Package = {
