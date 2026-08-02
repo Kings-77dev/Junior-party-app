@@ -367,7 +367,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
           <h1>Manage the vibe.</h1>
           <p>Access will be restricted to the approved organizer account: samueladjei162@gmail.com.</p>
           {initialUserEmail && !organizerAllowed ? <p className="flow-alert warning">This account is not approved for organizer access.</p> : null}
-          <button className="vibe-primary" onClick={() => organizerAllowed ? setSignedIn(true) : window.location.assign("/signin-with-chatgpt?return_to=/")}>Sign in with approved email</button>
+          <button className="vibe-primary" onClick={() => organizerAllowed ? setSignedIn(true) : window.location.assign("/signin-with-chatgpt?return_to=/organizer")}>Sign in with approved email</button>
           <small>Sign in using the approved organizer email.</small>
         </section>
       ) : (

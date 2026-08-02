@@ -18,6 +18,8 @@ test("contains the complete guest and organizer product flows", async () => {
   assert.match(app, /Confirm payment/);
   assert.match(app, /Drinks packages/);
   assert.match(app, /Payment destinations/);
+  assert.match(app, /signin-with-chatgpt\?return_to=\/organizer/);
+  assert.doesNotMatch(app, /signin-with-chatgpt\?return_to=\/"/);
   assert.match(layout, /Midnight Reserve/);
   assert.match(layout, /og\.png/);
   assert.match(css, /@media \(max-width: 560px\)/);
