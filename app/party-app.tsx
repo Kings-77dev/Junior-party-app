@@ -8,6 +8,9 @@ type AdminTab = "orders" | "packages" | "settings";
 type OrderFilter = "review" | "all";
 
 const guestSteps: GuestStep[] = ["details", "packages", "pay", "proof", "status"];
+const MAX_PROOF_SELECTION_BYTES = 10 * 1024 * 1024;
+const MAX_PROOF_UPLOAD_BYTES = 850 * 1024;
+const PROOF_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function money(value: number) {
   return `GHS ${new Intl.NumberFormat("en-GH", { maximumFractionDigits: 0 }).format(value)}`;
@@ -19,6 +22,35 @@ function remaining(pkg: Package) {
 
 function makeOrderCode() {
   return `SHH-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+function canvasBlob(canvas: HTMLCanvasElement, quality: number) {
+  return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+}
+
+async function prepareProofImage(file: File): Promise<File> {
+  if (!PROOF_IMAGE_TYPES.includes(file.type)) throw new Error("Use a JPEG, PNG, or WebP screenshot.");
+  if (file.size > MAX_PROOF_SELECTION_BYTES) throw new Error("Screenshot must be 10 MB or smaller.");
+  if (file.size <= MAX_PROOF_UPLOAD_BYTES) return file;
+
+  const bitmap = await createImageBitmap(file);
+  let lastBlob: Blob | null = null;
+  for (const [maxDimension, quality] of [[1800, .8], [1500, .74], [1200, .68], [960, .62]] as const) {
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("This browser could not prepare the screenshot.");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    lastBlob = await canvasBlob(canvas, quality);
+    if (lastBlob && lastBlob.size <= MAX_PROOF_UPLOAD_BYTES) break;
+  }
+  bitmap.close();
+  if (!lastBlob || lastBlob.size > MAX_PROOF_UPLOAD_BYTES) throw new Error("The screenshot could not be compressed. Try cropping it and upload again.");
+  return new File([lastBlob], `${file.name.replace(/\.[^.]+$/, "") || "payment-proof"}.jpg`, { type: "image/jpeg" });
 }
 
 function statusLabel(status: OrderStatus) {
@@ -47,10 +79,10 @@ function migratePackageCatalog(state: AppState): AppState {
       }),
     };
   }
-  if ((state.configVersion ?? 0) < 3) {
+  if ((state.configVersion ?? 0) < 4) {
     next = {
       ...next,
-      configVersion: 3,
+      configVersion: 4,
       organizerEmails: ["freshfaya6@yahoo.com"],
       event: { ...next.event, whatsapp: "0557788343" },
       paymentDestinations: defaultState.paymentDestinations,
@@ -79,6 +111,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   const [payerName, setPayerName] = useState("");
   const [senderPhone, setSenderPhone] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState("MR-A7K9");
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("review");
@@ -169,6 +202,18 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
     window.setTimeout(() => setToast(""), 2400);
   }
 
+  function contactOrganizer(context: "payment" | "order") {
+    if (!data.event.whatsapp) return showToast("Add the organizer WhatsApp number in event settings.");
+    const digits = data.event.whatsapp.replace(/\D/g, "");
+    const international = digits.startsWith("0") ? `233${digits.slice(1)}` : digits;
+    const packageName = selectedPackage?.name ?? currentOrder?.packageName ?? "a drinks package";
+    const reference = currentOrder ? ` My order reference is ${currentOrder.id}.` : "";
+    const message = context === "payment"
+      ? `Hello, I am ${guestName || "a guest"}. I need help with payment for the ${packageName} package.`
+      : `Hello, I am ${guestName || "a guest"}. I am contacting you about the ${packageName} package.${reference}`;
+    window.open(`https://wa.me/${international}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  }
+
   function beginGuest(event: FormEvent) {
     event.preventDefault();
     if (!guestName.trim() || guestPhone.replace(/\D/g, "").length < 9 || !phoneConfirmed) return;
@@ -201,25 +246,29 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   async function submitPayment(event: FormEvent) {
     event.preventDefault();
     if (!selectedPackage || transactionId.trim().length < 6 || !payerName.trim() || senderPhone.replace(/\D/g, "").length < 9) return;
-    let screenshotKey: string | null = null;
-    if (screenshot) {
-      const form = new FormData();
-      form.set("file", screenshot);
-      const upload = await fetch("/api/upload", { method: "POST", body: form });
-      const uploaded = await upload.json() as { key?: string | null };
-      screenshotKey = uploaded.key ?? null;
-    }
-    const order: Order = {
-      id: makeOrderCode(), guestName: guestName.trim(), guestPhone: guestPhone.trim(),
-      packageId: selectedPackage.id, packageName: selectedPackage.name, amount: selectedPackage.price,
-      network: `${destination.label} · ${destination.number}`, transactionId: transactionId.trim(), payerName: payerName.trim(), senderPhone: senderPhone.trim(),
-      status: "awaiting", submittedAt: "Just now",
-    };
+    setSubmitting(true);
     try {
+      let screenshotKey: string | null = null;
+      if (screenshot) {
+        const preparedScreenshot = await prepareProofImage(screenshot);
+        const form = new FormData();
+        form.set("file", preparedScreenshot);
+        const upload = await fetch("/api/upload", { method: "POST", body: form });
+        const uploaded = await upload.json().catch(() => ({})) as { key?: string | null; error?: string };
+        if (!upload.ok) throw new Error(uploaded.error ?? "Could not upload the screenshot. Try a smaller image.");
+        screenshotKey = uploaded.key ?? null;
+      }
+      const order: Order = {
+        id: makeOrderCode(), guestName: guestName.trim(), guestPhone: guestPhone.trim(),
+        packageId: selectedPackage.id, packageName: selectedPackage.name, amount: selectedPackage.price,
+        network: `${destination.label} · ${destination.number}`, transactionId: transactionId.trim(), payerName: payerName.trim(), senderPhone: senderPhone.trim(),
+        status: "awaiting", submittedAt: "Just now",
+      };
       if (!holdId) throw new Error("Reservation expired. Please select the package again.");
       await runAction({action:"submit",order,holdId,screenshotKey});
       setCurrentOrder({...order,screenshotKey}); setSelectedOrderId(order.id); setHeldPackageId(null); setHoldId(null); setHoldUntil(null); setGuestStep("status");
     } catch (error) { showToast(error instanceof Error ? error.message : "Could not submit payment"); }
+    finally { setSubmitting(false); }
   }
 
   async function setOrderStatus(order: Order, status: "paid" | "unverified" | "resubmit") {
@@ -322,6 +371,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <div className="pay-destination"><small>Send exactly</small><strong>{money(selectedPackage.price)}</strong><span>to</span><b>{destination.number}</b><p>{destination.accountName}</p><button onClick={copyNumber}>{copied ? "Copied ✓" : "Copy number"}</button></div>
                   <div className="flow-alert warning">Confirm the recipient name in your MoMo prompt before sending.</div>
                   <button className="vibe-primary" onClick={() => setGuestStep("proof")}>I&apos;ve paid — continue</button>
+                  <button className="vibe-secondary" onClick={() => contactOrganizer("payment")}>Contact organizer on WhatsApp · {data.event.whatsapp}</button>
                 </div>
               )}
 
@@ -335,8 +385,8 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <label>Transaction ID<input value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="e.g. 88432105779" required /></label>
                   <label>Name used for payment<input value={payerName} onChange={(e) => setPayerName(e.target.value)} required /></label>
                   <label>MoMo number used<input value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)} inputMode="tel" required /></label>
-                  <label className="upload-field"><span>{screenshot ? `${screenshot.name} attached ✓` : "+ Attach payment screenshot · optional"}</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)} /></label>
-                  <button className="vibe-primary">Submit for verification</button>
+                  <label className="upload-field"><span>{screenshot ? `${screenshot.name} attached ✓` : "+ Attach payment screenshot · optional · up to 10 MB"}</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const file=e.target.files?.[0]??null; if(file&&file.size>MAX_PROOF_SELECTION_BYTES){setScreenshot(null);e.currentTarget.value="";showToast("Screenshot must be 10 MB or smaller.");return;} setScreenshot(file); }} /></label>
+                  <button className="vibe-primary" disabled={submitting}>{submitting ? "Preparing and submitting…" : "Submit for verification"}</button>
                 </form>
               )}
 
@@ -347,7 +397,8 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <h2>Awaiting verification</h2>
                   <p className="supporting">An organizer will check your payment details by the end of today.</p>
                   <div className="order-ticket"><span>Order reference<strong>{currentOrder.id}</strong></span><span>Package<b>{currentOrder.packageName}</b></span><span>Amount<b>{money(currentOrder.amount)}</b></span><span>Status<em>{statusLabel(currentOrder.status)}</em></span></div>
-                  <button className="vibe-secondary" onClick={() => data.event.whatsapp ? window.open(`https://wa.me/${data.event.whatsapp.replace(/\D/g, "")}`, "_blank") : showToast("Add the organizer WhatsApp number in event settings.")}>WhatsApp organizer</button>
+                  <p className="supporting">Need help? Contact the organizer on WhatsApp: <strong>{data.event.whatsapp}</strong></p>
+                  <button className="vibe-secondary" onClick={() => contactOrganizer("order")}>WhatsApp organizer · {data.event.whatsapp}</button>
                 </div>
               )}
             </>

@@ -130,7 +130,7 @@ export const packageCatalog: Package[] = [
 
 export const defaultState: AppState = {
   catalogVersion: 2,
-  configVersion: 3,
+  configVersion: 4,
   organizerEmails: ["freshfaya6@yahoo.com"],
   holds: [],
   event: {
@@ -187,8 +187,8 @@ export const defaultState: AppState = {
     },
   ],
   paymentDestinations: [
-    { id: "mtn-primary", label: "MTN MoMo · Main line", network: "MTN MoMo", number: "0538044116", accountName: "Samuel Adjei", enabled: true },
-    { id: "mtn-whatsapp", label: "MTN MoMo · WhatsApp line", network: "MTN MoMo", number: "0557788343", accountName: "Samuel Adjei", enabled: true },
+    { id: "mtn-primary", label: "MTN MoMo · Main line", network: "MTN MoMo", number: "0538044116", accountName: "Samuel Adjei Kyereh", enabled: true },
+    { id: "mtn-whatsapp", label: "MTN MoMo · WhatsApp line", network: "MTN MoMo", number: "0557788343", accountName: "Samuel Adjei Kyereh", enabled: true },
     { id: "telecel", label: "Telecel Cash", network: "Telecel Cash", number: "Add before launch", accountName: "Add before launch", enabled: false },
     { id: "at-money", label: "AT Money", network: "AT Money", number: "Add before launch", accountName: "Add before launch", enabled: false },
   ],

@@ -22,8 +22,8 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) {
     return Response.json({ error: "Screenshot is required" }, { status: 400 });
   }
-  if (file.size > 5 * 1024 * 1024) {
-    return Response.json({ error: "Screenshot must be 5 MB or smaller" }, { status: 413 });
+  if (file.size > 10 * 1024 * 1024) {
+    return Response.json({ error: "Screenshot must be 10 MB or smaller" }, { status: 413 });
   }
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
     return Response.json({ error: "Use a JPEG, PNG, or WebP image" }, { status: 415 });
