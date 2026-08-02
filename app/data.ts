@@ -18,6 +18,7 @@ export type Package = {
   paid: number;
   active: boolean;
   initials: string;
+  canDelete?: boolean;
 };
 
 export type Order = {

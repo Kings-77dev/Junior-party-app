@@ -48,6 +48,7 @@ async function loadState(): Promise<AppState> {
   const pRows = await d1.prepare("SELECT * FROM packages ORDER BY rowid").all<Record<string, unknown>>();
   const oRows = await d1.prepare("SELECT * FROM orders ORDER BY rowid DESC").all<Record<string, unknown>>();
   const hRows = await d1.prepare("SELECT id,package_id,expires_at FROM inventory_holds").all<{id:string;package_id:string;expires_at:number}>();
+  const packageIdsWithOrders = new Set(oRows.results.map((row) => String(row.package_id)));
   let config = cfg?.data ? JSON.parse(cfg.data) as Partial<AppState> : defaultState;
   if ((config.configVersion ?? 0) < defaultState.configVersion) {
     config = {
@@ -61,7 +62,7 @@ async function loadState(): Promise<AppState> {
   }
   return {
     ...defaultState, ...config,
-    packages: pRows.results.map((r) => ({ id:r.id,name:r.name,description:r.description,price:r.price,capacity:r.capacity,reserved:r.reserved,paid:r.paid,active:!!r.active,initials:r.initials } as Package)),
+    packages: pRows.results.map((r) => ({ id:r.id,name:r.name,description:r.description,price:r.price,capacity:r.capacity,reserved:r.reserved,paid:r.paid,active:!!r.active,initials:r.initials,canDelete:Number(r.reserved)===0&&Number(r.paid)===0&&!packageIdsWithOrders.has(String(r.id)) } as Package)),
     orders: oRows.results.map((r) => ({ id:r.id,guestName:r.guest_name,guestPhone:r.guest_phone,packageId:r.package_id,packageName:r.package_name,amount:r.amount,network:String(r.network),transactionId:r.transaction_id,payerName:r.payer_name,senderPhone:r.sender_phone,status:r.status as OrderStatus,submittedAt:r.submitted_at,note:r.note,screenshotKey:r.screenshot_key } as Order)),
     holds: hRows.results.map((r) => ({ id:r.id,packageId:r.package_id,expiresAt:r.expires_at })),
   };

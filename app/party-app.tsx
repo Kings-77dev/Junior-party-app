@@ -178,14 +178,20 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   }, [data.orders, orderFilter, query]);
 
   async function persist(next: AppState) {
+    const previous = data;
     setData(next);
     setSaveState("saving");
     try {
-      await fetch("/api/state", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state: next }) });
+      const response = await fetch("/api/state", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state: next }) });
+      const payload = await response.json() as { state?: AppState; error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Could not save changes");
+      if (payload.state) setData(payload.state);
       setSaveState("saved");
       window.setTimeout(() => setSaveState("idle"), 1600);
-    } catch {
+    } catch (error) {
+      setData(previous);
       setSaveState("idle");
+      throw error;
     }
   }
 
@@ -282,7 +288,13 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   }
 
   async function updatePackage(id: string, changes: Partial<Package>) {
-    await persist({ ...data, packages: data.packages.map((pkg) => pkg.id === id ? { ...pkg, ...changes } : pkg) });
+    try {
+      await persist({ ...data, packages: data.packages.map((pkg) => pkg.id === id ? { ...pkg, ...changes } : pkg) });
+      showToast("Package changes saved.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save package");
+      throw error;
+    }
   }
 
   async function addPackage() {
@@ -463,9 +475,40 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   );
 }
 
-function PackageEditor({ pkg, onUpdate, onDelete }: { pkg: Package; onUpdate: (changes: Partial<Package>) => void; onDelete: () => void }) {
+function PackageEditor({ pkg, onUpdate, onDelete }: { pkg: Package; onUpdate: (changes: Partial<Package>) => Promise<void>; onDelete: () => void }) {
   const [draft, setDraft] = useState(pkg);
+  const [editing, setEditing] = useState(pkg.name === "New package");
+  const [saving, setSaving] = useState(false);
   useEffect(() => setDraft(pkg), [pkg]);
   const left = remaining(draft);
-  return <article className="mobile-package-editor"><div className={`editor-art art-${draft.id}`}><i className="mini-bottle" /><b>{draft.initials}</b></div><div className="editor-fields"><div><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><label>GHS<input type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></label></div><input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></div><div className="editor-actions"><div><button onClick={() => setDraft({ ...draft, capacity: Math.max(draft.paid + draft.reserved, draft.capacity - 1) })}>−</button><strong>{left} left</strong><button onClick={() => setDraft({ ...draft, capacity: draft.capacity + 1 })}>+</button></div><label><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />{draft.active ? "Visible" : "Hidden"}</label><button onClick={() => setDraft({ ...draft, capacity: draft.paid + draft.reserved })}>Sell out</button><button className="delete-package" onClick={onDelete} aria-label={`Delete ${draft.name}`}>Delete</button><button className="save-package" onClick={() => onUpdate(draft)}>Save</button></div></article>;
+  const dirty = draft.name !== pkg.name || draft.description !== pkg.description || draft.price !== pkg.price || draft.capacity !== pkg.capacity || draft.active !== pkg.active;
+
+  function cancelEditing() { setDraft(pkg); setEditing(false); }
+  async function saveChanges() {
+    if (!dirty || saving) return;
+    setSaving(true);
+    try { await onUpdate(draft); setEditing(false); }
+    finally { setSaving(false); }
+  }
+  function markSoldOut() {
+    if (left === 0 || !window.confirm(`Mark ${draft.name} as sold out?`)) return;
+    setDraft({ ...draft, capacity: draft.paid + draft.reserved });
+  }
+
+  if (!editing) return <article className="mobile-package-editor package-summary-card">
+    <div className={`editor-art art-${pkg.id}`}><i className="mini-bottle" /><b>{pkg.initials}</b></div>
+    <div className="package-summary"><div><h2>{pkg.name}</h2><strong>{money(pkg.price)}</strong></div><p>{pkg.description}</p><div className="package-meta"><span>{remaining(pkg)} left</span><span className={pkg.active ? "is-visible" : "is-hidden"}>{pkg.active ? "Visible" : "Hidden"}</span></div></div>
+    <button className="edit-package" onClick={() => setEditing(true)}>Edit package</button>
+  </article>;
+
+  return <article className="mobile-package-editor package-editing">
+    <div className="package-edit-header"><div className={`editor-art art-${draft.id}`}><i className="mini-bottle" /><b>{draft.initials}</b></div><div><small>Editing package</small><h2>{draft.name}</h2></div></div>
+    <div className="editor-fields">
+      <div className="editor-field-row"><label><span>Package name</span><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label><label className="price-field"><span>Price</span><div><b>GHS</b><input type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></div></label></div>
+      <label><span>Package contents</span><textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
+    </div>
+    <div className="inventory-editor"><div><small>Available quantity</small><div className="quantity-stepper"><button onClick={() => setDraft({ ...draft, capacity: Math.max(draft.paid + draft.reserved, draft.capacity - 1) })} aria-label="Decrease quantity">−</button><strong>{left} left</strong><button onClick={() => setDraft({ ...draft, capacity: draft.capacity + 1 })} aria-label="Increase quantity">+</button></div></div><label className="visibility-control"><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /><span><b>{draft.active ? "Visible to guests" : "Hidden from guests"}</b><small>{draft.active ? "Guests can reserve this package" : "Only organizers can see it"}</small></span></label></div>
+    <div className="editor-primary-actions"><button className="cancel-package" onClick={cancelEditing}>Cancel</button><button className="save-package" disabled={!dirty || saving} onClick={saveChanges}>{saving ? "Saving…" : "Save changes"}</button></div>
+    <div className="editor-danger-actions"><button onClick={markSoldOut} disabled={left === 0}>{left === 0 ? "Sold out" : "Mark as sold out"}</button>{pkg.canDelete ? <button className="delete-package" onClick={onDelete}>Delete package</button> : <p>Packages with reservations or orders can be hidden, but not deleted.</p>}</div>
+  </article>;
 }
