@@ -393,8 +393,10 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <div className="network-grid">{data.paymentDestinations.filter((item) => item.enabled).map((item) => <button key={item.id} className={destination.id === item.id ? "active" : ""} onClick={() => setDestinationId(item.id)}><i className={`network-dot net-${item.network.split(" ")[0].toLowerCase()}`} />{item.label}</button>)}</div>
                   <div className="pay-destination"><small>Send exactly</small><strong>{money(selectedPackage.price)}</strong><span>to</span><b>{destination.number}</b><p>{destination.accountName}</p><button onClick={copyNumber}>{copied ? "Copied ✓" : "Copy number"}</button></div>
                   <div className="flow-alert warning">Confirm the recipient name in your MoMo prompt before sending.</div>
-                  <button className="vibe-primary" onClick={() => setGuestStep("proof")}>I&apos;ve paid — continue</button>
-                  <button className="vibe-secondary" onClick={() => contactOrganizer("payment")}>Contact organizer on WhatsApp · {data.event.whatsapp}</button>
+                  <div className="payment-actions">
+                    <button className="vibe-primary" onClick={() => setGuestStep("proof")}>I&apos;ve paid — continue</button>
+                    <div className="payment-help-option"><small>Need help with this payment?</small><button className="vibe-secondary payment-whatsapp" onClick={() => contactOrganizer("payment")}><span>Ask organizer on WhatsApp</span><b>{data.event.whatsapp}</b></button></div>
+                  </div>
                 </div>
               )}
 

@@ -661,7 +661,11 @@ body::before { display: none; }
 .pay-destination > b { margin-top: 3px; font-size: 1.2rem; letter-spacing: .05em; }
 .pay-destination > p { margin: 3px 0 10px; color: var(--v-muted); font-size: .65rem; }
 .pay-destination button { padding: 7px 11px; border: 1px solid rgba(47,168,232,.5); border-radius: 999px; color: var(--v-accent-soft); background: transparent; font-size: .58rem; font-weight: 800; text-transform: uppercase; cursor: pointer; }
-.pay-page .vibe-primary { margin-top: auto; }
+.payment-actions { display: grid; gap: 18px; margin-top: auto; }
+.payment-help-option { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); }
+.payment-help-option > small { color: var(--v-muted); font-size: .56rem; font-weight: 700; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
+.payment-whatsapp { display: grid; place-items: center; gap: 3px; min-height: 64px; border-color: rgba(76,195,138,.38); color: var(--v-text); background: rgba(76,195,138,.045); letter-spacing: .05em; }
+.payment-whatsapp b { color: var(--v-success); font-size: .67rem; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
 .upload-field { position: relative; margin-bottom: 20px !important; padding: 14px; border: 1px dashed rgba(47,168,232,.45); border-radius: 11px; color: var(--v-accent-soft) !important; text-align: center; cursor: pointer; }
 .upload-field input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .proof-page .vibe-primary { margin-top: auto; }

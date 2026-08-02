@@ -22,15 +22,19 @@ test("prepares screenshots up to 10 MB and reports upload failures", async () =>
 });
 
 test("shows the organizer contact after package selection and order submission", async () => {
-  const [app, data] = await Promise.all([
+  const [app, data, css] = await Promise.all([
     readFile(new URL("app/party-app.tsx", root), "utf8"),
     readFile(new URL("app/data.ts", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
   ]);
 
   assert.match(data, /Samuel Adjei Kyereh/);
-  assert.match(app, /Contact organizer on WhatsApp/);
+  assert.match(app, /Need help with this payment\?/);
+  assert.match(app, /Ask organizer on WhatsApp/);
   assert.match(app, /WhatsApp organizer · \{data\.event\.whatsapp\}/);
   assert.match(app, /233\$\{digits\.slice\(1\)\}/);
+  assert.match(css, /\.payment-actions \{[^}]*gap: 18px/);
+  assert.match(css, /\.payment-help-option \{[^}]*padding-top: 16px/);
 });
 
 // Regression: organizer-created packages could not be removed and appeared last.
