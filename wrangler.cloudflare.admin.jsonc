@@ -6,7 +6,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
     "APP_SURFACE": "organizer",
-    "ADMIN_ENABLED": "false"
+    "ADMIN_ENABLED": "true",
+    "TEAM_DOMAIN": "https://mcvyral.cloudflareaccess.com",
+    "POLICY_AUD": "d8b7fcf6e0ce9ef7b4fe5b541b67738d2fbb77325a321750b617fd0a2d73f3e2"
   },
   "assets": {
     "directory": "public",
