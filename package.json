@@ -12,6 +12,7 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "build:bronze-qr": "node scripts/build-bronze-qr.mjs",
+    "build:general-qr": "node scripts/build-general-qr.mjs",
     "db:generate": "drizzle-kit generate",
     "cf:build": "CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=wrangler.cloudflare.jsonc vinext build",
     "cf:build:admin": "CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=wrangler.cloudflare.admin.jsonc vinext build",
