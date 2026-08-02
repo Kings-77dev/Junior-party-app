@@ -2,7 +2,19 @@ import { env } from "cloudflare:workers";
 
 type UploadBucket = {
   put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  get(key: string): Promise<{ body: ReadableStream; httpMetadata?: { contentType?: string } } | null>;
 };
+
+export async function GET(request: Request) {
+  const email = request.headers.get("oai-authenticated-user-email")?.toLowerCase();
+  if (email !== "samueladjei162@gmail.com") return new Response("Organizer access required", { status: 403 });
+  const key = new URL(request.url).searchParams.get("key");
+  if (!key || !key.startsWith("payment-proof/")) return new Response("Not found", { status: 404 });
+  const bucket = (env as unknown as { UPLOADS?: UploadBucket }).UPLOADS;
+  const object = bucket ? await bucket.get(key) : null;
+  if (!object) return new Response("Not found", { status: 404 });
+  return new Response(object.body, { headers: { "content-type": object.httpMetadata?.contentType ?? "application/octet-stream", "cache-control": "private, max-age=60" } });
+}
 
 export async function POST(request: Request) {
   const formData = await request.formData();

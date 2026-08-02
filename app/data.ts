@@ -34,6 +34,13 @@ export type Order = {
   status: OrderStatus;
   submittedAt: string;
   note?: string;
+  screenshotKey?: string | null;
+};
+
+export type InventoryHold = {
+  id: string;
+  packageId: string;
+  expiresAt: number;
 };
 
 export type PaymentDestination = {
@@ -47,6 +54,7 @@ export type AppState = {
   catalogVersion?: number;
   configVersion?: number;
   organizerEmails?: string[];
+  holds?: InventoryHold[];
   event: {
     name: string;
     date: string;
@@ -122,6 +130,7 @@ export const defaultState: AppState = {
   catalogVersion: 2,
   configVersion: 1,
   organizerEmails: ["samueladjei162@gmail.com"],
+  holds: [],
   event: {
     name: "Midnight Reserve",
     date: "Saturday · 8:00 PM",

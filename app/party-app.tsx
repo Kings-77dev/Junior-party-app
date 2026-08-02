@@ -61,17 +61,19 @@ function migratePackageCatalog(state: AppState): AppState {
   return next;
 }
 
-export function PartyApp() {
+export function PartyApp({ initialUserEmail = null }: { initialUserEmail?: string | null }) {
   const [data, setData] = useState<AppState>(defaultState);
   const [mode, setMode] = useState<"guest" | "organizer">("guest");
   const [guestStep, setGuestStep] = useState<GuestStep>("landing");
   const [adminTab, setAdminTab] = useState<AdminTab>("orders");
-  const [signedIn, setSignedIn] = useState(false);
+  const organizerAllowed = initialUserEmail?.toLowerCase() === "samueladjei162@gmail.com";
+  const [signedIn, setSignedIn] = useState(organizerAllowed);
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [phoneConfirmed, setPhoneConfirmed] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState("gold");
   const [heldPackageId, setHeldPackageId] = useState<string | null>(null);
+  const [holdId, setHoldId] = useState<string | null>(null);
   const [holdUntil, setHoldUntil] = useState<number | null>(null);
   const [clock, setClock] = useState(Date.now());
   const [expiredNotice, setExpiredNotice] = useState(false);
@@ -109,23 +111,16 @@ export function PartyApp() {
       setClock(now);
       if (now < holdUntil) return;
       const expiredId = heldPackageId;
+      const expiredHoldId = holdId;
       setHoldUntil(null);
       setHeldPackageId(null);
+      setHoldId(null);
       setExpiredNotice(true);
       setGuestStep("packages");
-      setData((current) => {
-        const next = {
-          ...current,
-          packages: current.packages.map((pkg) =>
-            pkg.id === expiredId ? { ...pkg, reserved: Math.max(0, pkg.reserved - 1) } : pkg,
-          ),
-        };
-        fetch("/api/state", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state: next }) }).catch(() => undefined);
-        return next;
-      });
+      if (expiredHoldId) fetch("/api/state", { method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"release",holdId:expiredHoldId}) }).then(r=>r.json()).then(p=>p.state&&setData(p.state)).catch(()=>undefined);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [holdUntil, heldPackageId]);
+  }, [holdUntil, heldPackageId, holdId]);
 
   const selectedPackage = data.packages.find((pkg) => pkg.id === selectedPackageId) ?? data.packages[0];
   const selectedOrder = data.orders.find((order) => order.id === selectedOrderId) ?? data.orders[0];
@@ -162,6 +157,14 @@ export function PartyApp() {
     }
   }
 
+  async function runAction(body: Record<string, unknown>) {
+    const response = await fetch("/api/state", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body) });
+    const payload = await response.json() as { state?: AppState; error?: string };
+    if (!response.ok) throw new Error(payload.error ?? "Action failed");
+    if (payload.state) setData(payload.state);
+    return payload.state;
+  }
+
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(""), 2400);
@@ -177,20 +180,16 @@ export function PartyApp() {
 
   async function choosePackage(pkg: Package) {
     if (remaining(pkg) <= 0 || !pkg.active) return;
-    const next = {
-      ...data,
-      packages: data.packages.map((item) => {
-        if (heldPackageId && item.id === heldPackageId && heldPackageId !== pkg.id) return { ...item, reserved: Math.max(0, item.reserved - 1) };
-        if (item.id === pkg.id && heldPackageId !== pkg.id) return { ...item, reserved: item.reserved + 1 };
-        return item;
-      }),
-    };
+    if (holdId && heldPackageId !== pkg.id) await runAction({action:"release",holdId});
+    const nextHoldId = heldPackageId === pkg.id && holdId ? holdId : crypto.randomUUID();
+    const expiresAt = Date.now() + data.event.reservationMinutes * 60000;
+    if (nextHoldId !== holdId) await runAction({action:"hold",holdId:nextHoldId,packageId:pkg.id,expiresAt});
     setSelectedPackageId(pkg.id);
     setHeldPackageId(pkg.id);
-    setHoldUntil(Date.now() + data.event.reservationMinutes * 60000);
+    setHoldId(nextHoldId);
+    setHoldUntil(expiresAt);
     setClock(Date.now());
     setExpiredNotice(false);
-    await persist(next);
     setGuestStep("pay");
   }
 
@@ -203,10 +202,13 @@ export function PartyApp() {
   async function submitPayment(event: FormEvent) {
     event.preventDefault();
     if (!selectedPackage || transactionId.trim().length < 6 || !payerName.trim() || senderPhone.replace(/\D/g, "").length < 9) return;
+    let screenshotKey: string | null = null;
     if (screenshot) {
       const form = new FormData();
       form.set("file", screenshot);
-      await fetch("/api/upload", { method: "POST", body: form }).catch(() => undefined);
+      const upload = await fetch("/api/upload", { method: "POST", body: form });
+      const uploaded = await upload.json() as { key?: string | null };
+      screenshotKey = uploaded.key ?? null;
     }
     const order: Order = {
       id: makeOrderCode(), guestName: guestName.trim(), guestPhone: guestPhone.trim(),
@@ -214,38 +216,21 @@ export function PartyApp() {
       network, transactionId: transactionId.trim(), payerName: payerName.trim(), senderPhone: senderPhone.trim(),
       status: "awaiting", submittedAt: "Just now",
     };
-    const next = { ...data, orders: [order, ...data.orders] };
-    setCurrentOrder(order);
-    setSelectedOrderId(order.id);
-    setHeldPackageId(null);
-    setHoldUntil(null);
-    await persist(next);
-    setGuestStep("status");
+    try {
+      if (!holdId) throw new Error("Reservation expired. Please select the package again.");
+      await runAction({action:"submit",order,holdId,screenshotKey});
+      setCurrentOrder({...order,screenshotKey}); setSelectedOrderId(order.id); setHeldPackageId(null); setHoldId(null); setHoldUntil(null); setGuestStep("status");
+    } catch (error) { showToast(error instanceof Error ? error.message : "Could not submit payment"); }
   }
 
   async function setOrderStatus(order: Order, status: "paid" | "unverified" | "resubmit") {
-    const release = status === "paid" || status === "unverified";
-    const next: AppState = {
-      ...data,
-      orders: data.orders.map((item) => item.id === order.id ? { ...item, status } : item),
-      packages: data.packages.map((pkg) => pkg.id !== order.packageId ? pkg : {
-        ...pkg,
-        reserved: release ? Math.max(0, pkg.reserved - 1) : pkg.reserved,
-        paid: status === "paid" ? pkg.paid + 1 : pkg.paid,
-      }),
-    };
-    await persist(next);
-    showToast(status === "paid" ? "Payment confirmed and inventory updated." : status === "resubmit" ? "Guest marked for resubmission." : "Payment could not be verified.");
+    try { await runAction({action:"order-status",orderId:order.id,status}); showToast(status === "paid" ? "Payment confirmed and inventory updated." : status === "resubmit" ? "Guest marked for resubmission." : "Payment could not be verified."); }
+    catch(error){showToast(error instanceof Error?error.message:"Could not update order");}
   }
 
   async function cancelOrder(order: Order) {
-    const next: AppState = {
-      ...data,
-      orders: data.orders.map((item) => item.id === order.id ? { ...item, status: "cancelled" } : item),
-      packages: data.packages.map((pkg) => pkg.id === order.packageId ? { ...pkg, reserved: Math.max(0, pkg.reserved - 1) } : pkg),
-    };
-    await persist(next);
-    showToast("Order cancelled and inventory restored.");
+    try { await runAction({action:"order-status",orderId:order.id,status:"cancelled"}); showToast("Order cancelled and inventory restored."); }
+    catch(error){showToast(error instanceof Error?error.message:"Could not cancel order");}
   }
 
   async function updatePackage(id: string, changes: Partial<Package>) {
@@ -385,8 +370,9 @@ export function PartyApp() {
           <p className="script-kicker">Organizer access</p>
           <h1>Manage the vibe.</h1>
           <p>Access will be restricted to the approved organizer account: samueladjei162@gmail.com.</p>
-          <button className="vibe-primary" onClick={() => setSignedIn(true)}>Continue with Google</button>
-          <small>Preview mode lets you continue without a real account.</small>
+          {initialUserEmail && !organizerAllowed ? <p className="flow-alert warning">This account is not approved for organizer access.</p> : null}
+          <button className="vibe-primary" onClick={() => organizerAllowed ? setSignedIn(true) : window.location.assign("/signin-with-chatgpt?return_to=/")}>Sign in with approved email</button>
+          <small>Sign in using the approved organizer email.</small>
         </section>
       ) : (
         <section className="organizer-mobile">
@@ -403,7 +389,7 @@ export function PartyApp() {
               <div className="detail-title"><button onClick={() => setSelectedOrderId("")}>← Queue</button><em className={`order-status status-${selectedOrder.status}`}>{statusLabel(selectedOrder.status)}</em></div>
               <h2>{selectedOrder.id}</h2>
               <section><small>Guest</small><p><span>Name</span><b>{selectedOrder.guestName}</b></p><p><span>Phone</span><b>{selectedOrder.guestPhone}</b></p><p><span>Package</span><b>{selectedOrder.packageName} · {money(selectedOrder.amount)}</b></p></section>
-              <section><small>Submitted payment</small><p><span>Network</span><b>{selectedOrder.network}</b></p><p><span>Transaction ID</span><b className="accent-text">{selectedOrder.transactionId}</b></p><p><span>Name on payment</span><b>{selectedOrder.payerName}</b></p><p><span>MoMo number</span><b>{selectedOrder.senderPhone}</b></p><div className="proof-file">Payment screenshot · optional evidence</div></section>
+              <section><small>Submitted payment</small><p><span>Network</span><b>{selectedOrder.network}</b></p><p><span>Transaction ID</span><b className="accent-text">{selectedOrder.transactionId}</b></p><p><span>Name on payment</span><b>{selectedOrder.payerName}</b></p><p><span>MoMo number</span><b>{selectedOrder.senderPhone}</b></p>{selectedOrder.screenshotKey ? <a className="proof-file" href={`/api/upload?key=${encodeURIComponent(selectedOrder.screenshotKey)}`} target="_blank" rel="noreferrer">Open payment screenshot ↗</a> : <div className="proof-file">No payment screenshot attached</div>}</section>
               <label>Verification note<textarea placeholder="e.g. Matches MTN statement 21:14" /></label>
               <div className="verification-actions"><button className="confirm" onClick={() => setOrderStatus(selectedOrder, "paid")}>Confirm payment</button><div><button onClick={() => setOrderStatus(selectedOrder, "unverified")}>Can&apos;t verify</button><button onClick={() => setOrderStatus(selectedOrder, "resubmit")}>Ask to resubmit</button></div><button className="cancel" onClick={() => cancelOrder(selectedOrder)}>Cancel order & restore inventory</button></div>
             </article>}
