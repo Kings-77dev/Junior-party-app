@@ -5,11 +5,14 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("contains the complete guest and organizer product flows", async () => {
-  const [app, layout, css, hosting] = await Promise.all([
+  const [app, layout, css, hosting, stateRoute, uploadRoute, data] = await Promise.all([
     readFile(new URL("app/party-app.tsx", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL(".openai/hosting.json", root), "utf8"),
+    readFile(new URL("app/api/state/route.ts", root), "utf8"),
+    readFile(new URL("app/api/upload/route.ts", root), "utf8"),
+    readFile(new URL("app/data.ts", root), "utf8"),
   ]);
 
   assert.match(app, /Your night/);
@@ -18,6 +21,9 @@ test("contains the complete guest and organizer product flows", async () => {
   assert.match(app, /Confirm payment/);
   assert.match(app, /Drinks packages/);
   assert.match(app, /Payment destinations/);
+  const organizerAuthorization = `${app}\n${stateRoute}\n${uploadRoute}\n${data}`;
+  assert.match(organizerAuthorization, /freshfaya6@yahoo\.com/);
+  assert.doesNotMatch(organizerAuthorization, /samueladjei162@gmail\.com/);
   assert.match(app, /signin-with-chatgpt\?return_to=\/organizer/);
   assert.doesNotMatch(app, /signin-with-chatgpt\?return_to=\/"/);
   assert.match(layout, /Midnight Reserve/);

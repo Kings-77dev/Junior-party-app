@@ -51,7 +51,7 @@ function migratePackageCatalog(state: AppState): AppState {
     next = {
       ...next,
       configVersion: 1,
-      organizerEmails: ["samueladjei162@gmail.com"],
+      organizerEmails: ["freshfaya6@yahoo.com"],
       event: { ...next.event, whatsapp: "0557788343" },
       paymentDestinations: next.paymentDestinations.map((item) => item.network === "MTN MoMo"
         ? { ...item, number: "0538044116", accountName: "Samuel Adjei", enabled: true }
@@ -65,7 +65,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   const [data, setData] = useState<AppState>(defaultState);
   const [guestStep, setGuestStep] = useState<GuestStep>("landing");
   const [adminTab, setAdminTab] = useState<AdminTab>("orders");
-  const organizerAllowed = initialUserEmail?.toLowerCase() === "samueladjei162@gmail.com";
+  const organizerAllowed = initialUserEmail?.toLowerCase() === "freshfaya6@yahoo.com";
   const [signedIn, setSignedIn] = useState(organizerAllowed);
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -365,7 +365,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
           <div className="organizer-login-mark">SHH</div>
           <p className="script-kicker">Organizer access</p>
           <h1>Manage the vibe.</h1>
-          <p>Access will be restricted to the approved organizer account: samueladjei162@gmail.com.</p>
+          <p>Access will be restricted to the approved organizer account: freshfaya6@yahoo.com.</p>
           {initialUserEmail && !organizerAllowed ? <p className="flow-alert warning">This account is not approved for organizer access.</p> : null}
           <button className="vibe-primary" onClick={() => organizerAllowed ? setSignedIn(true) : window.location.assign("/signin-with-chatgpt?return_to=/organizer")}>Sign in with approved email</button>
           <small>Sign in using the approved organizer email.</small>

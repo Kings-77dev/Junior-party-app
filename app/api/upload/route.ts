@@ -7,7 +7,7 @@ type UploadBucket = {
 
 export async function GET(request: Request) {
   const email = request.headers.get("oai-authenticated-user-email")?.toLowerCase();
-  if (email !== "samueladjei162@gmail.com") return new Response("Organizer access required", { status: 403 });
+  if (email !== "freshfaya6@yahoo.com") return new Response("Organizer access required", { status: 403 });
   const key = new URL(request.url).searchParams.get("key");
   if (!key || !key.startsWith("payment-proof/")) return new Response("Not found", { status: 404 });
   const bucket = (env as unknown as { UPLOADS?: UploadBucket }).UPLOADS;

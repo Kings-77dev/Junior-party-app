@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { defaultState, type AppState, type Network, type Order, type OrderStatus, type Package } from "../../data";
 
-const ORGANIZER = "samueladjei162@gmail.com";
+const ORGANIZER = "freshfaya6@yahoo.com";
 type D1 = NonNullable<typeof env.DB>;
 
 function db(): D1 {
