@@ -34,6 +34,7 @@ test("shows the organizer contact after package selection and order submission",
   assert.match(app, /WhatsApp organizer · \{data\.event\.whatsapp\}/);
   assert.match(app, /233\$\{digits\.slice\(1\)\}/);
   assert.match(css, /\.payment-actions \{[^}]*gap: 18px/);
+  assert.match(css, /\.pay-page \.flow-alert\.warning \{[^}]*margin-bottom: 18px/);
   assert.match(css, /\.payment-help-option \{[^}]*padding-top: 16px/);
 });
 

@@ -662,6 +662,7 @@ body::before { display: none; }
 .pay-destination > p { margin: 3px 0 10px; color: var(--v-muted); font-size: .65rem; }
 .pay-destination button { padding: 7px 11px; border: 1px solid rgba(47,168,232,.5); border-radius: 999px; color: var(--v-accent-soft); background: transparent; font-size: .58rem; font-weight: 800; text-transform: uppercase; cursor: pointer; }
 .payment-actions { display: grid; gap: 18px; margin-top: auto; }
+.pay-page .flow-alert.warning { margin-bottom: 18px; }
 .payment-help-option { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); }
 .payment-help-option > small { color: var(--v-muted); font-size: .56rem; font-weight: 700; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
 .payment-whatsapp { display: grid; place-items: center; gap: 3px; min-height: 64px; border-color: rgba(76,195,138,.38); color: var(--v-text); background: rgba(76,195,138,.045); letter-spacing: .05em; }
