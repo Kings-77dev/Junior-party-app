@@ -128,7 +128,7 @@ export const packageCatalog: Package[] = [
 
 export const defaultState: AppState = {
   catalogVersion: 2,
-  configVersion: 1,
+  configVersion: 2,
   organizerEmails: ["freshfaya6@yahoo.com"],
   holds: [],
   event: {

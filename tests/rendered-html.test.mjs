@@ -24,6 +24,10 @@ test("contains the complete guest and organizer product flows", async () => {
   const organizerAuthorization = `${app}\n${stateRoute}\n${uploadRoute}\n${data}`;
   assert.match(organizerAuthorization, /freshfaya6@yahoo\.com/);
   assert.doesNotMatch(organizerAuthorization, /samueladjei162@gmail\.com/);
+  assert.match(data, /configVersion: 2/);
+  assert.match(stateRoute, /config\.configVersion \?\? 0/);
+  assert.match(stateRoute, /whatsapp: defaultState\.event\.whatsapp/);
+  assert.match(stateRoute, /paymentDestinations: defaultState\.paymentDestinations/);
   assert.match(app, /signin-with-chatgpt\?return_to=\/organizer/);
   assert.doesNotMatch(app, /signin-with-chatgpt\?return_to=\/"/);
   assert.match(layout, /Midnight Reserve/);

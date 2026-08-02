@@ -48,7 +48,17 @@ async function loadState(): Promise<AppState> {
   const pRows = await d1.prepare("SELECT * FROM packages ORDER BY rowid").all<Record<string, unknown>>();
   const oRows = await d1.prepare("SELECT * FROM orders ORDER BY rowid DESC").all<Record<string, unknown>>();
   const hRows = await d1.prepare("SELECT id,package_id,expires_at FROM inventory_holds").all<{id:string;package_id:string;expires_at:number}>();
-  const config = cfg?.data ? JSON.parse(cfg.data) : defaultState;
+  let config = cfg?.data ? JSON.parse(cfg.data) as Partial<AppState> : defaultState;
+  if ((config.configVersion ?? 0) < defaultState.configVersion) {
+    config = {
+      ...config,
+      configVersion: defaultState.configVersion,
+      organizerEmails: [ORGANIZER],
+      event: { ...defaultState.event, ...config.event, whatsapp: defaultState.event.whatsapp },
+      paymentDestinations: defaultState.paymentDestinations,
+    };
+    await d1.prepare("INSERT OR REPLACE INTO app_config (id,data,updated_at) VALUES ('main',?,?)").bind(JSON.stringify(config),new Date().toISOString()).run();
+  }
   return {
     ...defaultState, ...config,
     packages: pRows.results.map((r) => ({ id:r.id,name:r.name,description:r.description,price:r.price,capacity:r.capacity,reserved:r.reserved,paid:r.paid,active:!!r.active,initials:r.initials } as Package)),
