@@ -137,6 +137,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   const [guestPhone, setGuestPhone] = useState("");
   const [phoneConfirmed, setPhoneConfirmed] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState("gold");
+  const [campaignPackageId, setCampaignPackageId] = useState<string | null>(null);
   const [heldPackageId, setHeldPackageId] = useState<string | null>(null);
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdUntil, setHoldUntil] = useState<number | null>(null);
@@ -156,6 +157,14 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    if (surface !== "guest") return;
+    const packageId = new URLSearchParams(window.location.search).get("package")?.trim().toLowerCase();
+    if (!packageId) return;
+    setCampaignPackageId(packageId);
+    setSelectedPackageId(packageId);
+  }, [surface]);
 
   useEffect(() => {
     fetch(stateEndpoint)
@@ -194,6 +203,10 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   }, [holdUntil, heldPackageId, holdId, stateEndpoint]);
 
   const selectedPackage = data.packages.find((pkg) => pkg.id === selectedPackageId) ?? data.packages[0];
+  const campaignPackage = campaignPackageId
+    ? data.packages.find((pkg) => pkg.id === campaignPackageId && pkg.active)
+    : undefined;
+  const guestPackages = campaignPackage ? [campaignPackage] : data.packages.filter((pkg) => pkg.active);
   const selectedOrder = data.orders.find((order) => order.id === selectedOrderId);
   const destination = data.paymentDestinations.find((item) => item.id === destinationId && item.enabled)
     ?? data.paymentDestinations.find((item) => item.enabled)
@@ -392,7 +405,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                 <div><i /> <strong>{data.event.location}</strong></div>
               </div>
               <div className="landing-actions">
-                <button className="vibe-primary" onClick={() => setGuestStep("details")}>Reserve your package</button>
+                <button className="vibe-primary" onClick={() => setGuestStep("details")}>{campaignPackage ? `Reserve ${campaignPackage.name}` : "Reserve your package"}</button>
                 <p>No account needed · Pay with Mobile Money · Held {data.event.reservationMinutes} min</p>
               </div>
             </div>
@@ -411,7 +424,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <label>Full name<input value={guestName} onChange={(e) => setGuestName(cleanName(e.target.value))} placeholder="e.g. Ama Serwaa" autoComplete="name" pattern="[A-Za-z ]+" title="Use letters and spaces only" required /><small className="field-hint">Letters and spaces only.</small></label>
                   <label>Phone number<input value={guestPhone} onChange={(e) => { setGuestPhone(cleanGhanaPhone(e.target.value)); setPhoneConfirmed(false); }} placeholder="e.g. 0551234567" inputMode="numeric" autoComplete="tel" maxLength={10} pattern="0[0-9]{9}" title="Enter 10 digits starting with 0" required /><small className={guestPhone && !isValidGhanaPhone(guestPhone) ? "field-error" : "field-hint"}>{guestPhone && !isValidGhanaPhone(guestPhone) ? "Enter exactly 10 digits starting with 0." : "10 digits, starting with 0."}</small></label>
                   <label className="confirm-check"><input type="checkbox" checked={phoneConfirmed} onChange={(e) => setPhoneConfirmed(e.target.checked)} /><span>I&apos;ve checked — this number is correct</span></label>
-                  <button className="vibe-primary" disabled={!isValidName(guestName) || !isValidGhanaPhone(guestPhone) || !phoneConfirmed}>See drinks packages</button>
+                  <button className="vibe-primary" disabled={!isValidName(guestName) || !isValidGhanaPhone(guestPhone) || !phoneConfirmed}>{campaignPackage ? `See ${campaignPackage.name} package` : "See drinks packages"}</button>
                 </form>
               )}
 
@@ -419,12 +432,12 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                 <div className="flow-page packages-page">
                   <button className="back-link" onClick={() => setGuestStep("details")}>← Back</button>
                   <p className="script-kicker">{data.event.name}</p>
-                  <h2>Choose your package</h2>
+                  <h2>{campaignPackage ? `${campaignPackage.name} package` : "Choose your package"}</h2>
                   <p className="supporting">Your pick is held for {data.event.reservationMinutes} minutes while you pay via MoMo.</p>
                   {expiredNotice && <div className="flow-alert warning">Your hold expired and the package went back on sale — pick again.</div>}
                   {heldPackageId && <div className="flow-alert holding"><span>Holding {selectedPackage?.name}</span><strong>{holdTime}</strong></div>}
                   <div className="prototype-package-list">
-                    {data.packages.filter((pkg) => pkg.active).map((pkg) => {
+                    {guestPackages.map((pkg) => {
                       const left = remaining(pkg);
                       return <button key={pkg.id} className="prototype-package" disabled={left === 0} onClick={() => choosePackage(pkg)}>
                         <span className={`prototype-art art-${pkg.id}`}>{pkg.imageKey ? <PackageImage src={packageImageUrl(pkg.imageKey)} /> : <><i className="mini-bottle" /><b>{pkg.initials}</b></>}</span>

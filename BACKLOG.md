@@ -12,6 +12,7 @@ Acceptance criteria:
 - The organizer dashboard remains on a separate protected address and is never linked from the guest experience.
 - All production links, metadata, WhatsApp messages, and redirects use the final guest domain.
 - One high-resolution QR code is generated for the guest landing page, with SVG for print and PNG for sharing.
+- Package campaign QR assets, including Bronze, are regenerated with the final guest domain before production sharing.
 - The QR is scanned successfully from both iPhone and Android devices and opens the guest landing page without authentication.
 - The final guest ordering and organizer verification flows pass a production smoke test before the QR is printed.
 
