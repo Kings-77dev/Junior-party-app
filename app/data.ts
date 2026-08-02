@@ -45,6 +45,8 @@ export type PaymentDestination = {
 
 export type AppState = {
   catalogVersion?: number;
+  configVersion?: number;
+  organizerEmails?: string[];
   event: {
     name: string;
     date: string;
@@ -118,12 +120,14 @@ export const packageCatalog: Package[] = [
 
 export const defaultState: AppState = {
   catalogVersion: 2,
+  configVersion: 1,
+  organizerEmails: ["samueladjei162@gmail.com"],
   event: {
     name: "Midnight Reserve",
     date: "Saturday · 8:00 PM",
     location: "Accra",
     message: "Your night, reserved. Choose your drinks package and secure your place.",
-    whatsapp: "",
+    whatsapp: "0557788343",
     reservationMinutes: 30,
   },
   packages: packageCatalog,
@@ -172,8 +176,8 @@ export const defaultState: AppState = {
     },
   ],
   paymentDestinations: [
-    { network: "MTN MoMo", number: "Add before launch", accountName: "Add before launch", enabled: true },
-    { network: "Telecel Cash", number: "Add before launch", accountName: "Add before launch", enabled: true },
-    { network: "AT Money", number: "Add before launch", accountName: "Add before launch", enabled: true },
+    { network: "MTN MoMo", number: "0538044116", accountName: "Samuel Adjei", enabled: true },
+    { network: "Telecel Cash", number: "Add before launch", accountName: "Add before launch", enabled: false },
+    { network: "AT Money", number: "Add before launch", accountName: "Add before launch", enabled: false },
   ],
 };

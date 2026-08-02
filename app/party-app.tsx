@@ -35,22 +35,30 @@ function statusLabel(status: OrderStatus) {
 }
 
 function migratePackageCatalog(state: AppState): AppState {
-  if ((state.catalogVersion ?? 0) >= 2) return state;
-  return {
-    ...state,
-    catalogVersion: 2,
-    packages: packageCatalog.map((actualPackage, index) => {
-      const existing = state.packages[index];
-      if (!existing) return actualPackage;
-      return {
-        ...actualPackage,
-        capacity: existing.capacity,
-        reserved: existing.reserved,
-        paid: existing.paid,
-        active: existing.active,
-      };
-    }),
-  };
+  let next = state;
+  if ((state.catalogVersion ?? 0) < 2) {
+    next = {
+      ...next,
+      catalogVersion: 2,
+      packages: packageCatalog.map((actualPackage, index) => {
+        const existing = state.packages[index];
+        if (!existing) return actualPackage;
+        return { ...actualPackage, capacity: existing.capacity, reserved: existing.reserved, paid: existing.paid, active: existing.active };
+      }),
+    };
+  }
+  if ((state.configVersion ?? 0) < 1) {
+    next = {
+      ...next,
+      configVersion: 1,
+      organizerEmails: ["samueladjei162@gmail.com"],
+      event: { ...next.event, whatsapp: "0557788343" },
+      paymentDestinations: next.paymentDestinations.map((item) => item.network === "MTN MoMo"
+        ? { ...item, number: "0538044116", accountName: "Samuel Adjei", enabled: true }
+        : { ...item, enabled: false }),
+    };
+  }
+  return next;
 }
 
 export function PartyApp() {
@@ -376,7 +384,7 @@ export function PartyApp() {
           <div className="organizer-login-mark">SHH</div>
           <p className="script-kicker">Organizer access</p>
           <h1>Manage the vibe.</h1>
-          <p>Access will be limited to three approved Gmail accounts before launch.</p>
+          <p>Access will be restricted to the approved organizer account: samueladjei162@gmail.com.</p>
           <button className="vibe-primary" onClick={() => setSignedIn(true)}>Continue with Google</button>
           <small>Preview mode lets you continue without a real account.</small>
         </section>
