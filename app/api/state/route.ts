@@ -2,6 +2,8 @@ import { env } from "cloudflare:workers";
 import { defaultState, type AppState, type Order, type OrderStatus, type Package } from "../../data";
 
 const ORGANIZER = "freshfaya6@yahoo.com";
+const NAME_PATTERN = /^\p{L}+(?: \p{L}+)*$/u;
+const GHANA_PHONE_PATTERN = /^0\d{9}$/;
 type D1 = NonNullable<typeof env.DB>;
 
 function db(): D1 {
@@ -96,6 +98,8 @@ export async function POST(request: Request) {
       if (hold) await d1.batch([d1.prepare("DELETE FROM inventory_holds WHERE id=?").bind(body.holdId),d1.prepare("UPDATE packages SET reserved=MAX(0,reserved-1) WHERE id=?").bind(hold.package_id)]);
     } else if (body.action === "submit") {
       const o = body.order as Order;
+      if (!NAME_PATTERN.test(o.guestName.trim()) || !NAME_PATTERN.test(o.payerName.trim())) return Response.json({error:"Names must contain letters and spaces only"},{status:400});
+      if (!GHANA_PHONE_PATTERN.test(o.guestPhone) || !GHANA_PHONE_PATTERN.test(o.senderPhone)) return Response.json({error:"Phone numbers must be 10 digits and start with 0"},{status:400});
       const duplicate = await d1.prepare("SELECT id FROM orders WHERE transaction_id=?").bind(o.transactionId).first();
       if (duplicate) return Response.json({ error:"This transaction ID has already been submitted" },{status:409});
       const hold = await d1.prepare("SELECT package_id,expires_at FROM inventory_holds WHERE id=?").bind(body.holdId).first<{package_id:string;expires_at:number}>();

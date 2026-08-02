@@ -20,6 +20,22 @@ function remaining(pkg: Package) {
   return Math.max(0, pkg.capacity - pkg.reserved - pkg.paid);
 }
 
+function cleanName(value: string) {
+  return value.replace(/[^\p{L} ]/gu, "").replace(/ {2,}/g, " ").slice(0, 80);
+}
+
+function cleanGhanaPhone(value: string) {
+  return value.replace(/\D/g, "").slice(0, 10);
+}
+
+function isValidName(value: string) {
+  return /^\p{L}+(?: \p{L}+)*$/u.test(value.trim());
+}
+
+function isValidGhanaPhone(value: string) {
+  return /^0\d{9}$/.test(value);
+}
+
 function makeOrderCode() {
   return `SHH-${Math.floor(1000 + Math.random() * 9000)}`;
 }
@@ -222,7 +238,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
 
   function beginGuest(event: FormEvent) {
     event.preventDefault();
-    if (!guestName.trim() || guestPhone.replace(/\D/g, "").length < 9 || !phoneConfirmed) return;
+    if (!isValidName(guestName) || !isValidGhanaPhone(guestPhone) || !phoneConfirmed) return;
     setPayerName(guestName.trim().toUpperCase());
     setSenderPhone(guestPhone.trim());
     setGuestStep("packages");
@@ -251,7 +267,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
 
   async function submitPayment(event: FormEvent) {
     event.preventDefault();
-    if (!selectedPackage || transactionId.trim().length < 6 || !payerName.trim() || senderPhone.replace(/\D/g, "").length < 9) return;
+    if (!selectedPackage || transactionId.trim().length < 6 || !isValidName(payerName) || !isValidGhanaPhone(senderPhone)) return;
     setSubmitting(true);
     try {
       let screenshotKey: string | null = null;
@@ -355,10 +371,10 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <p className="script-kicker">First things first…</p>
                   <h2>Who&apos;s reserving?</h2>
                   <p className="supporting">We use these details to match your payment and keep you updated.</p>
-                  <label>Full name<input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="e.g. Ama Serwaa" required /></label>
-                  <label>Phone number<input value={guestPhone} onChange={(e) => { setGuestPhone(e.target.value); setPhoneConfirmed(false); }} placeholder="e.g. 055 123 4567" inputMode="tel" required /></label>
+                  <label>Full name<input value={guestName} onChange={(e) => setGuestName(cleanName(e.target.value))} placeholder="e.g. Ama Serwaa" autoComplete="name" pattern="[A-Za-z ]+" title="Use letters and spaces only" required /><small className="field-hint">Letters and spaces only.</small></label>
+                  <label>Phone number<input value={guestPhone} onChange={(e) => { setGuestPhone(cleanGhanaPhone(e.target.value)); setPhoneConfirmed(false); }} placeholder="e.g. 0551234567" inputMode="numeric" autoComplete="tel" maxLength={10} pattern="0[0-9]{9}" title="Enter 10 digits starting with 0" required /><small className={guestPhone && !isValidGhanaPhone(guestPhone) ? "field-error" : "field-hint"}>{guestPhone && !isValidGhanaPhone(guestPhone) ? "Enter exactly 10 digits starting with 0." : "10 digits, starting with 0."}</small></label>
                   <label className="confirm-check"><input type="checkbox" checked={phoneConfirmed} onChange={(e) => setPhoneConfirmed(e.target.checked)} /><span>I&apos;ve checked — this number is correct</span></label>
-                  <button className="vibe-primary" disabled={!guestName || guestPhone.replace(/\D/g, "").length < 9 || !phoneConfirmed}>See drinks packages</button>
+                  <button className="vibe-primary" disabled={!isValidName(guestName) || !isValidGhanaPhone(guestPhone) || !phoneConfirmed}>See drinks packages</button>
                 </form>
               )}
 
@@ -408,10 +424,10 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <h2>Submit payment</h2>
                   <p className="supporting">Enter the information from your Mobile Money confirmation message.</p>
                   <label>Transaction ID<input value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="e.g. 88432105779" required /></label>
-                  <label>Name used for payment<input value={payerName} onChange={(e) => setPayerName(e.target.value)} required /></label>
-                  <label>MoMo number used<input value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)} inputMode="tel" required /></label>
+                  <label>Name used for payment<input value={payerName} onChange={(e) => setPayerName(cleanName(e.target.value))} pattern="[A-Za-z ]+" title="Use letters and spaces only" required /><small className="field-hint">Letters and spaces only.</small></label>
+                  <label>MoMo number used<input value={senderPhone} onChange={(e) => setSenderPhone(cleanGhanaPhone(e.target.value))} inputMode="numeric" autoComplete="tel" maxLength={10} pattern="0[0-9]{9}" title="Enter 10 digits starting with 0" required /><small className={senderPhone && !isValidGhanaPhone(senderPhone) ? "field-error" : "field-hint"}>{senderPhone && !isValidGhanaPhone(senderPhone) ? "Enter exactly 10 digits starting with 0." : "10 digits, starting with 0."}</small></label>
                   <label className="upload-field"><span>{screenshot ? `${screenshot.name} attached ✓` : "+ Attach payment screenshot · optional · up to 10 MB"}</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const file=e.target.files?.[0]??null; if(file&&file.size>MAX_PROOF_SELECTION_BYTES){setScreenshot(null);e.currentTarget.value="";showToast("Screenshot must be 10 MB or smaller.");return;} setScreenshot(file); }} /></label>
-                  <button className="vibe-primary" disabled={submitting}>{submitting ? "Preparing and submitting…" : "Submit for verification"}</button>
+                  <button className="vibe-primary" disabled={submitting || transactionId.trim().length < 6 || !isValidName(payerName) || !isValidGhanaPhone(senderPhone)}>{submitting ? "Preparing and submitting…" : "Submit for verification"}</button>
                 </form>
               )}
 
