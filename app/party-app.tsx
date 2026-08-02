@@ -61,9 +61,8 @@ function migratePackageCatalog(state: AppState): AppState {
   return next;
 }
 
-export function PartyApp({ initialUserEmail = null }: { initialUserEmail?: string | null }) {
+export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initialUserEmail?: string | null; surface?: "guest" | "organizer" }) {
   const [data, setData] = useState<AppState>(defaultState);
-  const [mode, setMode] = useState<"guest" | "organizer">("guest");
   const [guestStep, setGuestStep] = useState<GuestStep>("landing");
   const [adminTab, setAdminTab] = useState<AdminTab>("orders");
   const organizerAllowed = initialUserEmail?.toLowerCase() === "samueladjei162@gmail.com";
@@ -250,7 +249,7 @@ export function PartyApp({ initialUserEmail = null }: { initialUserEmail?: strin
     setData({ ...data, paymentDestinations: data.paymentDestinations.map((item, i) => i === index ? { ...item, [field]: value } : item) });
   }
 
-  if (mode === "guest") {
+  if (surface === "guest") {
     return (
       <main className="vibe-app guest-mode">
         <section className={`vibe-phone guest-screen step-${guestStep}`}>
@@ -270,7 +269,6 @@ export function PartyApp({ initialUserEmail = null }: { initialUserEmail?: strin
               <div className="landing-actions">
                 <button className="vibe-primary" onClick={() => setGuestStep("details")}>Reserve your package</button>
                 <p>No account needed · Pay with Mobile Money · Held {data.event.reservationMinutes} min</p>
-                <button className="organizer-link" onClick={() => setMode("organizer")}>Organizer? Sign in →</button>
               </div>
             </div>
           )}
@@ -349,7 +347,6 @@ export function PartyApp({ initialUserEmail = null }: { initialUserEmail?: strin
                   <h2>Awaiting verification</h2>
                   <p className="supporting">An organizer will check your payment details by the end of today.</p>
                   <div className="order-ticket"><span>Order reference<strong>{currentOrder.id}</strong></span><span>Package<b>{currentOrder.packageName}</b></span><span>Amount<b>{money(currentOrder.amount)}</b></span><span>Status<em>{statusLabel(currentOrder.status)}</em></span></div>
-                  <button className="vibe-primary" onClick={() => { setMode("organizer"); setSignedIn(true); setAdminTab("orders"); setSelectedOrderId(currentOrder.id); }}>Preview organizer check</button>
                   <button className="vibe-secondary" onClick={() => data.event.whatsapp ? window.open(`https://wa.me/${data.event.whatsapp.replace(/\D/g, "")}`, "_blank") : showToast("Add the organizer WhatsApp number in event settings.")}>WhatsApp organizer</button>
                 </div>
               )}
@@ -365,7 +362,6 @@ export function PartyApp({ initialUserEmail = null }: { initialUserEmail?: strin
     <main className="vibe-app organizer-mode">
       {!signedIn ? (
         <section className="vibe-phone organizer-login">
-          <button className="back-link" onClick={() => setMode("guest")}>← Guest view</button>
           <div className="organizer-login-mark">SHH</div>
           <p className="script-kicker">Organizer access</p>
           <h1>Manage the vibe.</h1>
@@ -376,7 +372,7 @@ export function PartyApp({ initialUserEmail = null }: { initialUserEmail?: strin
         </section>
       ) : (
         <section className="organizer-mobile">
-          <header className="organizer-top"><div><small>Nana · organizer</small><strong>{data.event.name}</strong></div><button onClick={() => setMode("guest")}>Exit</button></header>
+          <header className="organizer-top"><div><small>Nana · organizer</small><strong>{data.event.name}</strong></div><button onClick={() => window.location.assign("/signout-with-chatgpt?return_to=/organizer")}>Sign out</button></header>
           <nav className="organizer-tabs"><button className={adminTab === "orders" ? "active" : ""} onClick={() => setAdminTab("orders")}><span>◎</span>Orders</button><button className={adminTab === "packages" ? "active" : ""} onClick={() => setAdminTab("packages")}><span>◇</span>Packages</button><button className={adminTab === "settings" ? "active" : ""} onClick={() => setAdminTab("settings")}><span>⚙</span>Settings</button></nav>
 
           {adminTab === "orders" && <div className="admin-mobile-page">
