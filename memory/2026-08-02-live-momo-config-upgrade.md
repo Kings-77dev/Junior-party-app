@@ -22,4 +22,4 @@ The live API reproduced the stale values before the fix. The full project build 
 
 ## Status
 
-Implementation verified locally; production verification will be completed after deployment.
+DONE. Production version 12 is live, and a fresh public API read reports configuration version 2, MTN MoMo `0538044116`, account name `Samuel Adjei`, WhatsApp `0557788343`, and the other networks disabled.
