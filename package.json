@@ -13,10 +13,12 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "cf:build": "CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=wrangler.cloudflare.jsonc vinext build",
+    "cf:build:admin": "CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=wrangler.cloudflare.admin.jsonc vinext build",
     "cf:types": "WRANGLER_LOG_PATH=.wrangler/wrangler.log WRANGLER_WRITE_LOGS=false wrangler types cloudflare-env.d.ts --config wrangler.cloudflare.jsonc",
     "cf:check": "npm run cf:build && WRANGLER_LOG_PATH=.wrangler/wrangler.log WRANGLER_WRITE_LOGS=false wrangler deploy --dry-run --config dist/server/wrangler.json",
     "cf:db:migrate": "WRANGLER_LOG_PATH=.wrangler/wrangler.log WRANGLER_WRITE_LOGS=false wrangler d1 migrations apply midnight-reserve-staging --remote --config wrangler.cloudflare.jsonc",
-    "cf:deploy": "npm run cf:build && WRANGLER_LOG_PATH=.wrangler/wrangler.log WRANGLER_WRITE_LOGS=false wrangler deploy --config dist/server/wrangler.json"
+    "cf:deploy": "npm run cf:build && WRANGLER_LOG_PATH=.wrangler/wrangler.log WRANGLER_WRITE_LOGS=false wrangler deploy --config dist/server/wrangler.json",
+    "cf:deploy:admin": "npm run cf:build:admin && WRANGLER_LOG_PATH=.wrangler/wrangler.log WRANGLER_WRITE_LOGS=false wrangler deploy --config dist/server/wrangler.json"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

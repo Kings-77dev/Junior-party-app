@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getChatGPTUser } from "../chatgpt-auth";
+import { getAccessUser } from "../access-auth";
 import { PartyApp } from "../party-app";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +11,6 @@ export const metadata: Metadata = {
 };
 
 export default async function OrganizerPage() {
-  const user = await getChatGPTUser();
+  const user = await getAccessUser();
   return <PartyApp surface="organizer" initialUserEmail={user?.email ?? null} />;
 }

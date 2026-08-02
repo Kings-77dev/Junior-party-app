@@ -1,11 +1,12 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "mcvyral-reserve-staging",
+  "name": "mcvyral-reserve-admin-staging",
   "main": "worker/index.ts",
   "compatibility_date": "2026-08-02",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "APP_SURFACE": "guest"
+    "APP_SURFACE": "organizer",
+    "ADMIN_ENABLED": "false"
   },
   "assets": {
     "directory": "public",

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { defaultState, type AppState, type Order, type OrderStatus, type Package } from "../../data";
 
-const ORGANIZER = "freshfaya6@yahoo.com";
+const ORGANIZER = "samueladjei162@gmail.com";
 const NAME_PATTERN = /^\p{L}+(?: \p{L}+)*$/u;
 const GHANA_PHONE_PATTERN = /^0\d{9}$/;
 type D1 = NonNullable<typeof env.DB>;
@@ -71,7 +71,8 @@ async function loadState(): Promise<AppState> {
 }
 
 function organizerEmail(request: Request) {
-  const email = request.headers.get("oai-authenticated-user-email")?.toLowerCase() ?? null;
+  if (!new URL(request.url).pathname.startsWith("/api/organizer/")) return null;
+  const email = request.headers.get("cf-access-authenticated-user-email")?.toLowerCase() ?? null;
   return email === ORGANIZER ? email : null;
 }
 

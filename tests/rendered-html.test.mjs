@@ -22,8 +22,8 @@ test("contains the complete guest and organizer product flows", async () => {
   assert.match(app, /Drinks packages/);
   assert.match(app, /Payment destinations/);
   const organizerAuthorization = `${app}\n${stateRoute}\n${uploadRoute}\n${data}`;
-  assert.match(organizerAuthorization, /freshfaya6@yahoo\.com/);
-  assert.doesNotMatch(organizerAuthorization, /samueladjei162@gmail\.com/);
+  assert.match(organizerAuthorization, /samueladjei162@gmail\.com/);
+  assert.doesNotMatch(organizerAuthorization, /freshfaya6@yahoo\.com/);
   assert.match(data, /configVersion: 4/);
   assert.match(data, /mtn-primary/);
   assert.match(data, /mtn-whatsapp/);
@@ -33,8 +33,8 @@ test("contains the complete guest and organizer product flows", async () => {
   assert.match(stateRoute, /config\.configVersion \?\? 0/);
   assert.match(stateRoute, /whatsapp: defaultState\.event\.whatsapp/);
   assert.match(stateRoute, /paymentDestinations: defaultState\.paymentDestinations/);
-  assert.match(app, /signin-with-chatgpt\?return_to=\/organizer/);
-  assert.doesNotMatch(app, /signin-with-chatgpt\?return_to=\/"/);
+  assert.match(app, /\/cdn-cgi\/access\/logout/);
+  assert.match(app, /\/api\/organizer\/state/);
   assert.match(layout, /Midnight Reserve/);
   assert.match(layout, /og\.png/);
   assert.match(css, /@media \(max-width: 560px\)/);

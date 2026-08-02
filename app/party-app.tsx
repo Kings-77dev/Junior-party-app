@@ -108,7 +108,7 @@ function migratePackageCatalog(state: AppState): AppState {
     next = {
       ...next,
       configVersion: 4,
-      organizerEmails: ["freshfaya6@yahoo.com"],
+      organizerEmails: ["samueladjei162@gmail.com"],
       event: { ...next.event, whatsapp: "0557788343" },
       paymentDestinations: defaultState.paymentDestinations,
     };
@@ -120,7 +120,8 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   const [data, setData] = useState<AppState>(defaultState);
   const [guestStep, setGuestStep] = useState<GuestStep>("landing");
   const [adminTab, setAdminTab] = useState<AdminTab>("orders");
-  const organizerAllowed = initialUserEmail?.toLowerCase() === "freshfaya6@yahoo.com";
+  const organizerAllowed = initialUserEmail?.toLowerCase() === "samueladjei162@gmail.com";
+  const stateEndpoint = surface === "organizer" ? "/api/organizer/state" : "/api/state";
   const [signedIn, setSignedIn] = useState(organizerAllowed);
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -147,19 +148,19 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    fetch("/api/state")
+    fetch(stateEndpoint)
       .then((response) => response.json())
       .then((value: unknown) => {
         const payload = value as { state?: AppState };
         if (!payload.state) return;
         const next = migratePackageCatalog(payload.state);
         setData(next);
-        if (next !== payload.state) {
-          fetch("/api/state", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state: next }) }).catch(() => undefined);
+        if (surface === "organizer" && next !== payload.state) {
+          fetch(stateEndpoint, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state: next }) }).catch(() => undefined);
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [stateEndpoint, surface]);
 
   useEffect(() => {
     if (!holdUntil || !heldPackageId) return;
@@ -174,13 +175,13 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
       setHoldId(null);
       setExpiredNotice(true);
       setGuestStep("packages");
-      if (expiredHoldId) fetch("/api/state", { method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"release",holdId:expiredHoldId}) }).then(r=>r.json()).then((value: unknown) => {
+      if (expiredHoldId) fetch(stateEndpoint, { method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"release",holdId:expiredHoldId}) }).then(r=>r.json()).then((value: unknown) => {
         const payload = value as { state?: AppState };
         if (payload.state) setData(payload.state);
       }).catch(()=>undefined);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [holdUntil, heldPackageId, holdId]);
+  }, [holdUntil, heldPackageId, holdId, stateEndpoint]);
 
   const selectedPackage = data.packages.find((pkg) => pkg.id === selectedPackageId) ?? data.packages[0];
   const selectedOrder = data.orders.find((order) => order.id === selectedOrderId);
@@ -214,7 +215,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
     setData(next);
     setSaveState("saving");
     try {
-      const response = await fetch("/api/state", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state: next }) });
+      const response = await fetch(stateEndpoint, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state: next }) });
       const payload = await response.json() as { state?: AppState; error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Could not save changes");
       if (payload.state) setData(payload.state);
@@ -228,7 +229,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   }
 
   async function runAction(body: Record<string, unknown>) {
-    const response = await fetch("/api/state", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body) });
+    const response = await fetch(stateEndpoint, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body) });
     const payload = await response.json() as { state?: AppState; error?: string };
     if (!response.ok) throw new Error(payload.error ?? "Action failed");
     if (payload.state) setData(payload.state);
@@ -358,7 +359,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
       <div className="detail-title"><button onClick={() => setSelectedOrderId("")}>Close details ↑</button><em className={`order-status status-${order.status}`}>{statusLabel(order.status)}</em></div>
       <h2>{order.id}</h2>
       <section><small>Guest</small><p><span>Name</span><b>{order.guestName}</b></p><p><span>Phone</span><b>{order.guestPhone}</b></p><p><span>Package</span><b>{order.packageName} · {money(order.amount)}</b></p></section>
-      <section><small>Submitted payment</small><p><span>Network</span><b>{order.network}</b></p><p><span>Transaction ID</span><b className="accent-text">{order.transactionId}</b></p><p><span>Name on payment</span><b>{order.payerName}</b></p><p><span>MoMo number</span><b>{order.senderPhone}</b></p>{order.screenshotKey ? <a className="proof-file" href={`/api/upload?key=${encodeURIComponent(order.screenshotKey)}`} target="_blank" rel="noreferrer">Open payment screenshot ↗</a> : <div className="proof-file">No payment screenshot attached</div>}</section>
+      <section><small>Submitted payment</small><p><span>Network</span><b>{order.network}</b></p><p><span>Transaction ID</span><b className="accent-text">{order.transactionId}</b></p><p><span>Name on payment</span><b>{order.payerName}</b></p><p><span>MoMo number</span><b>{order.senderPhone}</b></p>{order.screenshotKey ? <a className="proof-file" href={`/api/organizer/upload?key=${encodeURIComponent(order.screenshotKey)}`} target="_blank" rel="noreferrer">Open payment screenshot ↗</a> : <div className="proof-file">No payment screenshot attached</div>}</section>
       {order.status === "awaiting" ? <><label>Verification note<textarea value={verificationNote} onChange={(event) => setVerificationNote(event.target.value)} placeholder="e.g. Matches MTN statement 21:14" /></label><div className="verification-actions"><button className="confirm" onClick={() => setOrderStatus(order, "paid")}>Confirm payment</button><div><button onClick={() => setOrderStatus(order, "unverified")}>Can&apos;t verify</button><button onClick={() => setOrderStatus(order, "resubmit")}>Ask to resubmit</button></div><button className="cancel" onClick={() => cancelOrder(order)}>Cancel order & restore inventory</button></div></> : <div className={`order-resolution resolution-${order.status}`}><strong>{statusLabel(order.status)}</strong><p>{orderStateMessage(order.status)}</p>{order.note ? <small>Note: {order.note}</small> : null}{order.status === "resubmit" ? <button onClick={() => cancelOrder(order)}>Cancel order & restore inventory</button> : null}</div>}
     </article>;
   }
@@ -483,14 +484,14 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
           <div className="organizer-login-mark">SHH</div>
           <p className="script-kicker">Organizer access</p>
           <h1>Manage the vibe.</h1>
-          <p>Access will be restricted to the approved organizer account: freshfaya6@yahoo.com.</p>
+          <p>Access is restricted to the approved organizer account: samueladjei162@gmail.com.</p>
           {initialUserEmail && !organizerAllowed ? <p className="flow-alert warning">This account is not approved for organizer access.</p> : null}
-          <button className="vibe-primary" onClick={() => organizerAllowed ? setSignedIn(true) : window.location.assign("/signin-with-chatgpt?return_to=/organizer")}>Sign in with approved email</button>
-          <small>Sign in using the approved organizer email.</small>
+          <button className="vibe-primary" onClick={() => window.location.reload()}>Try secure sign-in again</button>
+          <small>Cloudflare will email a one-time sign-in code to the approved address.</small>
         </section>
       ) : (
         <section className="organizer-mobile">
-          <header className="organizer-top"><div><small>Nana · organizer</small><strong>{data.event.name}</strong></div><button onClick={() => window.location.assign("/signout-with-chatgpt?return_to=/organizer")}>Sign out</button></header>
+          <header className="organizer-top"><div><small>Samuel · organizer</small><strong>{data.event.name}</strong></div><button onClick={() => window.location.assign("/cdn-cgi/access/logout")}>Sign out</button></header>
           <nav className="organizer-tabs"><button className={adminTab === "orders" ? "active" : ""} onClick={() => setAdminTab("orders")}><span>◎</span>Orders</button><button className={adminTab === "packages" ? "active" : ""} onClick={() => setAdminTab("packages")}><span>◇</span>Packages</button><button className={adminTab === "settings" ? "active" : ""} onClick={() => setAdminTab("settings")}><span>⚙</span>Settings</button></nav>
 
           {adminTab === "orders" && <div className="admin-mobile-page">
