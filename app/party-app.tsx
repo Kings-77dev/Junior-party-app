@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { defaultState, type AppState, type Network, type Order, type OrderStatus, type Package } from "./data";
+import { defaultState, packageCatalog, type AppState, type Network, type Order, type OrderStatus, type Package } from "./data";
 
 type GuestStep = "landing" | "details" | "packages" | "pay" | "proof" | "status";
 type AdminTab = "orders" | "packages" | "settings";
@@ -34,6 +34,25 @@ function statusLabel(status: OrderStatus) {
   return labels[status];
 }
 
+function migratePackageCatalog(state: AppState): AppState {
+  if ((state.catalogVersion ?? 0) >= 2) return state;
+  return {
+    ...state,
+    catalogVersion: 2,
+    packages: packageCatalog.map((actualPackage, index) => {
+      const existing = state.packages[index];
+      if (!existing) return actualPackage;
+      return {
+        ...actualPackage,
+        capacity: existing.capacity,
+        reserved: existing.reserved,
+        paid: existing.paid,
+        active: existing.active,
+      };
+    }),
+  };
+}
+
 export function PartyApp() {
   const [data, setData] = useState<AppState>(defaultState);
   const [mode, setMode] = useState<"guest" | "organizer">("guest");
@@ -43,7 +62,7 @@ export function PartyApp() {
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [phoneConfirmed, setPhoneConfirmed] = useState(false);
-  const [selectedPackageId, setSelectedPackageId] = useState("gold-table");
+  const [selectedPackageId, setSelectedPackageId] = useState("gold");
   const [heldPackageId, setHeldPackageId] = useState<string | null>(null);
   const [holdUntil, setHoldUntil] = useState<number | null>(null);
   const [clock, setClock] = useState(Date.now());
@@ -64,7 +83,14 @@ export function PartyApp() {
   useEffect(() => {
     fetch("/api/state")
       .then((response) => response.json())
-      .then((payload: { state?: AppState }) => payload.state && setData(payload.state))
+      .then((payload: { state?: AppState }) => {
+        if (!payload.state) return;
+        const next = migratePackageCatalog(payload.state);
+        setData(next);
+        if (next !== payload.state) {
+          fetch("/api/state", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state: next }) }).catch(() => undefined);
+        }
+      })
       .catch(() => undefined);
   }, []);
 

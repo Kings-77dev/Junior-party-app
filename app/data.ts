@@ -44,6 +44,7 @@ export type PaymentDestination = {
 };
 
 export type AppState = {
+  catalogVersion?: number;
   event: {
     name: string;
     date: string;
@@ -57,7 +58,66 @@ export type AppState = {
   paymentDestinations: PaymentDestination[];
 };
 
+export const packageCatalog: Package[] = [
+  {
+    id: "bronze",
+    name: "Bronze",
+    description: "1× Mosketo · 1× La Roche · 3× JP Chenet · 2× Water",
+    price: 2000,
+    capacity: 10,
+    reserved: 0,
+    paid: 0,
+    active: true,
+    initials: "BR",
+  },
+  {
+    id: "silver",
+    name: "Silver",
+    description: "1× Agor · 2× JP Chenet · 1× Black Label · 1× La Roche · 1× Shisha · 3× Mixers",
+    price: 3000,
+    capacity: 10,
+    reserved: 0,
+    paid: 0,
+    active: true,
+    initials: "SI",
+  },
+  {
+    id: "gold",
+    name: "Gold",
+    description: "1× Mosketo · 1× Hennessy VS · 1× Belaire Phantom · 2× JP Chenet Gold · 1× Shisha · 4× Mixers",
+    price: 5000,
+    capacity: 10,
+    reserved: 0,
+    paid: 0,
+    active: true,
+    initials: "GO",
+  },
+  {
+    id: "diamond",
+    name: "Diamond",
+    description: "1× Omelca · 1× Black Label · 1× Hennessy VS · 2× Belaire · 1× JP Chenet Gold · 8× Mixers · 10× Water · 2× Shisha",
+    price: 7000,
+    capacity: 10,
+    reserved: 0,
+    paid: 0,
+    active: true,
+    initials: "DI",
+  },
+  {
+    id: "platinum",
+    name: "Platinum",
+    description: "1× Veuve Rich · 1× Hennessy · 1× Moët · 2× Belaire · 1× Jägermeister · 10× Water · 2× Shisha",
+    price: 10000,
+    capacity: 10,
+    reserved: 0,
+    paid: 0,
+    active: true,
+    initials: "PL",
+  },
+];
+
 export const defaultState: AppState = {
+  catalogVersion: 2,
   event: {
     name: "Midnight Reserve",
     date: "Saturday · 8:00 PM",
@@ -66,41 +126,7 @@ export const defaultState: AppState = {
     whatsapp: "",
     reservationMinutes: 30,
   },
-  packages: [
-    {
-      id: "gold-table",
-      name: "Gold Table",
-      description: "Premium spirit, mixers and ice for two.",
-      price: 450,
-      capacity: 10,
-      reserved: 4,
-      paid: 3,
-      active: true,
-      initials: "GT",
-    },
-    {
-      id: "midnight-duo",
-      name: "Midnight Duo",
-      description: "One spirit, mixers and two signature shots.",
-      price: 280,
-      capacity: 20,
-      reserved: 3,
-      paid: 5,
-      active: true,
-      initials: "MD",
-    },
-    {
-      id: "solo-spark",
-      name: "Solo Spark",
-      description: "Personal bottle service with mixers.",
-      price: 150,
-      capacity: 15,
-      reserved: 2,
-      paid: 5,
-      active: true,
-      initials: "SS",
-    },
-  ],
+  packages: packageCatalog,
   orders: [
     {
       id: "MR-A7K9",
