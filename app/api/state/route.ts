@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { defaultState, type AppState, type Network, type Order, type OrderStatus, type Package } from "../../data";
+import { defaultState, type AppState, type Order, type OrderStatus, type Package } from "../../data";
 
 const ORGANIZER = "freshfaya6@yahoo.com";
 type D1 = NonNullable<typeof env.DB>;
@@ -62,7 +62,7 @@ async function loadState(): Promise<AppState> {
   return {
     ...defaultState, ...config,
     packages: pRows.results.map((r) => ({ id:r.id,name:r.name,description:r.description,price:r.price,capacity:r.capacity,reserved:r.reserved,paid:r.paid,active:!!r.active,initials:r.initials } as Package)),
-    orders: oRows.results.map((r) => ({ id:r.id,guestName:r.guest_name,guestPhone:r.guest_phone,packageId:r.package_id,packageName:r.package_name,amount:r.amount,network:r.network as Network,transactionId:r.transaction_id,payerName:r.payer_name,senderPhone:r.sender_phone,status:r.status as OrderStatus,submittedAt:r.submitted_at,note:r.note,screenshotKey:r.screenshot_key } as Order)),
+    orders: oRows.results.map((r) => ({ id:r.id,guestName:r.guest_name,guestPhone:r.guest_phone,packageId:r.package_id,packageName:r.package_name,amount:r.amount,network:String(r.network),transactionId:r.transaction_id,payerName:r.payer_name,senderPhone:r.sender_phone,status:r.status as OrderStatus,submittedAt:r.submitted_at,note:r.note,screenshotKey:r.screenshot_key } as Order)),
     holds: hRows.results.map((r) => ({ id:r.id,packageId:r.package_id,expiresAt:r.expires_at })),
   };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { defaultState, packageCatalog, type AppState, type Network, type Order, type OrderStatus, type Package } from "./data";
+import { defaultState, packageCatalog, type AppState, type Order, type OrderStatus, type Package } from "./data";
 
 type GuestStep = "landing" | "details" | "packages" | "pay" | "proof" | "status";
 type AdminTab = "orders" | "packages" | "settings";
@@ -47,15 +47,13 @@ function migratePackageCatalog(state: AppState): AppState {
       }),
     };
   }
-  if ((state.configVersion ?? 0) < 1) {
+  if ((state.configVersion ?? 0) < 3) {
     next = {
       ...next,
-      configVersion: 1,
+      configVersion: 3,
       organizerEmails: ["freshfaya6@yahoo.com"],
       event: { ...next.event, whatsapp: "0557788343" },
-      paymentDestinations: next.paymentDestinations.map((item) => item.network === "MTN MoMo"
-        ? { ...item, number: "0538044116", accountName: "Samuel Adjei", enabled: true }
-        : { ...item, enabled: false }),
+      paymentDestinations: defaultState.paymentDestinations,
     };
   }
   return next;
@@ -76,7 +74,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   const [holdUntil, setHoldUntil] = useState<number | null>(null);
   const [clock, setClock] = useState(Date.now());
   const [expiredNotice, setExpiredNotice] = useState(false);
-  const [network, setNetwork] = useState<Network>("MTN MoMo");
+  const [destinationId, setDestinationId] = useState("mtn-primary");
   const [transactionId, setTransactionId] = useState("");
   const [payerName, setPayerName] = useState("");
   const [senderPhone, setSenderPhone] = useState("");
@@ -123,7 +121,9 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
 
   const selectedPackage = data.packages.find((pkg) => pkg.id === selectedPackageId) ?? data.packages[0];
   const selectedOrder = data.orders.find((order) => order.id === selectedOrderId) ?? data.orders[0];
-  const destination = data.paymentDestinations.find((item) => item.network === network) ?? data.paymentDestinations[0];
+  const destination = data.paymentDestinations.find((item) => item.id === destinationId && item.enabled)
+    ?? data.paymentDestinations.find((item) => item.enabled)
+    ?? data.paymentDestinations[0];
   const reviewOrders = data.orders.filter((order) => order.status === "awaiting" || order.status === "resubmit");
   const confirmedRevenue = data.orders.filter((order) => order.status === "paid").reduce((sum, order) => sum + order.amount, 0);
   const pendingRevenue = reviewOrders.reduce((sum, order) => sum + order.amount, 0);
@@ -212,7 +212,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
     const order: Order = {
       id: makeOrderCode(), guestName: guestName.trim(), guestPhone: guestPhone.trim(),
       packageId: selectedPackage.id, packageName: selectedPackage.name, amount: selectedPackage.price,
-      network, transactionId: transactionId.trim(), payerName: payerName.trim(), senderPhone: senderPhone.trim(),
+      network: `${destination.label} · ${destination.number}`, transactionId: transactionId.trim(), payerName: payerName.trim(), senderPhone: senderPhone.trim(),
       status: "awaiting", submittedAt: "Just now",
     };
     try {
@@ -317,8 +317,8 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <p className="script-kicker">Almost yours…</p>
                   <h2>Pay with Mobile Money</h2>
                   <div className="selected-strip"><span>{selectedPackage.initials}</span><div><small>{selectedPackage.name}</small><strong>{money(selectedPackage.price)}</strong></div></div>
-                  <p className="field-caption">Choose your network</p>
-                  <div className="network-grid">{data.paymentDestinations.filter((item) => item.enabled).map((item) => <button key={item.network} className={network === item.network ? "active" : ""} onClick={() => setNetwork(item.network)}><i className={`network-dot net-${item.network.split(" ")[0].toLowerCase()}`} />{item.network}</button>)}</div>
+                  <p className="field-caption">Choose a Mobile Money account</p>
+                  <div className="network-grid">{data.paymentDestinations.filter((item) => item.enabled).map((item) => <button key={item.id} className={destination.id === item.id ? "active" : ""} onClick={() => setDestinationId(item.id)}><i className={`network-dot net-${item.network.split(" ")[0].toLowerCase()}`} />{item.label}</button>)}</div>
                   <div className="pay-destination"><small>Send exactly</small><strong>{money(selectedPackage.price)}</strong><span>to</span><b>{destination.number}</b><p>{destination.accountName}</p><button onClick={copyNumber}>{copied ? "Copied ✓" : "Copy number"}</button></div>
                   <div className="flow-alert warning">Confirm the recipient name in your MoMo prompt before sending.</div>
                   <button className="vibe-primary" onClick={() => setGuestStep("proof")}>I&apos;ve paid — continue</button>
@@ -393,7 +393,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
 
           {adminTab === "packages" && <div className="admin-mobile-page"><div className="admin-heading"><div><p className="script-kicker">Drinks packages</p><h1>Manage packages</h1></div><button className="small-add" onClick={addPackage}>+ New</button></div><p className="supporting">Hidden packages do not show to guests. Quantity zero means sold out.</p><div className="mobile-package-admin">{data.packages.map((pkg) => <PackageEditor key={pkg.id} pkg={pkg} onUpdate={(changes) => updatePackage(pkg.id, changes)} />)}</div></div>}
 
-          {adminTab === "settings" && <div className="admin-mobile-page"><div className="admin-heading"><div><p className="script-kicker">Reusable event setup</p><h1>Event settings</h1></div></div><div className="mobile-settings-card"><h2>Event</h2><label>Party name<input value={data.event.name} onChange={(e) => updateEvent("name", e.target.value)} /></label><label>Date and time<input value={data.event.date} onChange={(e) => updateEvent("date", e.target.value)} /></label><label>Venue<input value={data.event.location} onChange={(e) => updateEvent("location", e.target.value)} /></label><label>Invitation message<textarea value={data.event.message} onChange={(e) => updateEvent("message", e.target.value)} /></label><div className="settings-pair"><label>Reservation hold<input type="number" min="5" max="120" value={data.event.reservationMinutes} onChange={(e) => updateEvent("reservationMinutes", Number(e.target.value))} /></label><label>WhatsApp contact<input value={data.event.whatsapp} onChange={(e) => updateEvent("whatsapp", e.target.value)} /></label></div></div><div className="mobile-settings-card"><h2>Payment destinations</h2>{data.paymentDestinations.map((item, index) => <div className="network-setting" key={item.network}><div><i className={`network-dot net-${item.network.split(" ")[0].toLowerCase()}`} /><strong>{item.network}</strong><label className="mini-toggle"><input type="checkbox" checked={item.enabled} onChange={(e) => updateDestination(index, "enabled", e.target.checked)} /><span /></label></div><input value={item.number} onChange={(e) => updateDestination(index, "number", e.target.value)} /><input value={item.accountName} onChange={(e) => updateDestination(index, "accountName", e.target.value)} /></div>)}<button className="vibe-primary" onClick={() => persist(data)}>Save event and payment settings</button></div></div>}
+          {adminTab === "settings" && <div className="admin-mobile-page"><div className="admin-heading"><div><p className="script-kicker">Reusable event setup</p><h1>Event settings</h1></div></div><div className="mobile-settings-card"><h2>Event</h2><label>Party name<input value={data.event.name} onChange={(e) => updateEvent("name", e.target.value)} /></label><label>Date and time<input value={data.event.date} onChange={(e) => updateEvent("date", e.target.value)} /></label><label>Venue<input value={data.event.location} onChange={(e) => updateEvent("location", e.target.value)} /></label><label>Invitation message<textarea value={data.event.message} onChange={(e) => updateEvent("message", e.target.value)} /></label><div className="settings-pair"><label>Reservation hold<input type="number" min="5" max="120" value={data.event.reservationMinutes} onChange={(e) => updateEvent("reservationMinutes", Number(e.target.value))} /></label><label>WhatsApp contact<input value={data.event.whatsapp} onChange={(e) => updateEvent("whatsapp", e.target.value)} /></label></div></div><div className="mobile-settings-card"><h2>Payment destinations</h2>{data.paymentDestinations.map((item, index) => <div className="network-setting" key={item.id}><div><i className={`network-dot net-${item.network.split(" ")[0].toLowerCase()}`} /><strong>{item.label}</strong><label className="mini-toggle"><input type="checkbox" checked={item.enabled} onChange={(e) => updateDestination(index, "enabled", e.target.checked)} /><span /></label></div><input value={item.number} onChange={(e) => updateDestination(index, "number", e.target.value)} /><input value={item.accountName} onChange={(e) => updateDestination(index, "accountName", e.target.value)} /></div>)}<button className="vibe-primary" onClick={() => persist(data)}>Save event and payment settings</button></div></div>}
         </section>
       )}
       {toast && <div className="toast" role="status">{toast}</div>}
