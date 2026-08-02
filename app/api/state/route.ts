@@ -22,13 +22,17 @@ async function ensureSchema() {
     d1.prepare("CREATE INDEX IF NOT EXISTS inventory_holds_expiry_idx ON inventory_holds(expires_at)"),
     d1.prepare("CREATE TABLE IF NOT EXISTS activity_log (id TEXT PRIMARY KEY NOT NULL, actor_email TEXT NOT NULL, action TEXT NOT NULL, order_id TEXT, details TEXT, created_at TEXT NOT NULL)"),
   ]);
+  const packageColumns = await d1.prepare("PRAGMA table_info(packages)").all<{name:string}>();
+  if (!packageColumns.results.some((column) => column.name === "image_key")) {
+    await d1.prepare("ALTER TABLE packages ADD COLUMN image_key TEXT").run();
+  }
   const count = await d1.prepare("SELECT COUNT(*) AS count FROM packages").first<{ count: number }>();
   if ((count?.count ?? 0) > 0) return;
   const legacy = await d1.prepare("SELECT data FROM app_state WHERE id = 'main'").first<{ data: string }>().catch(() => null);
   const state = legacy?.data ? JSON.parse(legacy.data) as AppState : defaultState;
   const config = { catalogVersion: state.catalogVersion, configVersion: state.configVersion, organizerEmails: state.organizerEmails, event: state.event, paymentDestinations: state.paymentDestinations };
   const statements = [d1.prepare("INSERT OR REPLACE INTO app_config (id,data,updated_at) VALUES ('main',?,?)").bind(JSON.stringify(config), new Date().toISOString())];
-  for (const p of state.packages) statements.push(d1.prepare("INSERT OR REPLACE INTO packages (id,name,description,price,capacity,reserved,paid,active,initials) VALUES (?,?,?,?,?,?,?,?,?)").bind(p.id,p.name,p.description,p.price,p.capacity,p.reserved,p.paid,p.active?1:0,p.initials));
+  for (const p of state.packages) statements.push(d1.prepare("INSERT OR REPLACE INTO packages (id,name,description,price,capacity,reserved,paid,active,initials,image_key) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(p.id,p.name,p.description,p.price,p.capacity,p.reserved,p.paid,p.active?1:0,p.initials,p.imageKey??null));
   for (const o of state.orders) statements.push(d1.prepare("INSERT OR IGNORE INTO orders (id,guest_name,guest_phone,package_id,package_name,amount,network,transaction_id,payer_name,sender_phone,status,submitted_at,note,screenshot_key,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(o.id,o.guestName,o.guestPhone,o.packageId,o.packageName,o.amount,o.network,o.transactionId,o.payerName,o.senderPhone,o.status,o.submittedAt,o.note??null,o.screenshotKey??null,new Date().toISOString()));
   await d1.batch(statements);
 }
@@ -64,7 +68,7 @@ async function loadState(): Promise<AppState> {
   }
   return {
     ...defaultState, ...config,
-    packages: pRows.results.map((r) => ({ id:r.id,name:r.name,description:r.description,price:r.price,capacity:r.capacity,reserved:r.reserved,paid:r.paid,active:!!r.active,initials:r.initials,canDelete:Number(r.reserved)===0&&Number(r.paid)===0&&!packageIdsWithOrders.has(String(r.id)) } as Package)),
+    packages: pRows.results.map((r) => ({ id:r.id,name:r.name,description:r.description,price:r.price,capacity:r.capacity,reserved:r.reserved,paid:r.paid,active:!!r.active,initials:r.initials,imageKey:r.image_key?String(r.image_key):null,canDelete:Number(r.reserved)===0&&Number(r.paid)===0&&!packageIdsWithOrders.has(String(r.id)) } as Package)),
     orders: oRows.results.map((r) => ({ id:r.id,guestName:r.guest_name,guestPhone:r.guest_phone,packageId:r.package_id,packageName:r.package_name,amount:r.amount,network:String(r.network),transactionId:r.transaction_id,payerName:r.payer_name,senderPhone:r.sender_phone,status:r.status as OrderStatus,submittedAt:r.submitted_at,note:r.note,screenshotKey:r.screenshot_key } as Order)),
     holds: hRows.results.map((r) => ({ id:r.id,packageId:r.package_id,expiresAt:r.expires_at })),
   };
@@ -78,6 +82,10 @@ function organizerEmail(request: Request) {
 
 function publicState(state: AppState): AppState {
   return { ...state, organizerEmails: [], orders: [] };
+}
+
+function packageImageKey(value?: string | null) {
+  return value?.startsWith("package-image/") ? value : null;
 }
 
 export async function GET(request: Request) {
@@ -117,7 +125,7 @@ export async function POST(request: Request) {
       await d1.batch(statements);
     } else if (body.action === "delete-package") {
       const actor = organizerEmail(request); if (!actor) return Response.json({error:"Organizer access required"},{status:403});
-      const pkg = await d1.prepare("SELECT name,reserved,paid FROM packages WHERE id=?").bind(body.packageId).first<{name:string;reserved:number;paid:number}>();
+      const pkg = await d1.prepare("SELECT name,reserved,paid,image_key FROM packages WHERE id=?").bind(body.packageId).first<{name:string;reserved:number;paid:number;image_key:string|null}>();
       if (!pkg) return Response.json({error:"Package not found"},{status:404});
       const order = await d1.prepare("SELECT id FROM orders WHERE package_id=? LIMIT 1").bind(body.packageId).first();
       if (pkg.reserved > 0 || pkg.paid > 0 || order) return Response.json({error:"This package has reservations or order history. Hide it instead."},{status:409});
@@ -125,6 +133,7 @@ export async function POST(request: Request) {
         d1.prepare("DELETE FROM packages WHERE id=?").bind(body.packageId),
         d1.prepare("INSERT INTO activity_log (id,actor_email,action,details,created_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),actor,"package.delete",JSON.stringify({packageId:body.packageId,name:pkg.name}),new Date().toISOString()),
       ]);
+      if (pkg.image_key?.startsWith("package-image/")) await env.UPLOADS.delete(pkg.image_key);
     } else return Response.json({error:"Unknown action"},{status:400});
     const state=await loadState();
     return Response.json({ state: organizerEmail(request) ? state : publicState(state) });
@@ -137,9 +146,16 @@ export async function PUT(request: Request) {
     await ensureSchema(); const d1=db(); const payload=await request.json() as {state?:AppState}; const state=payload.state;
     if (!state) return Response.json({error:"Invalid state"},{status:400});
     const config={catalogVersion:state.catalogVersion,configVersion:state.configVersion,organizerEmails:[ORGANIZER],event:state.event,paymentDestinations:state.paymentDestinations};
+    const existingImages = await d1.prepare("SELECT id,image_key FROM packages").all<{id:string;image_key:string|null}>();
+    const previousImageByPackage = new Map(existingImages.results.map((row) => [row.id, row.image_key]));
     const statements=[d1.prepare("INSERT OR REPLACE INTO app_config (id,data,updated_at) VALUES ('main',?,?)").bind(JSON.stringify(config),new Date().toISOString())];
-    for(const p of state.packages) statements.push(d1.prepare("INSERT INTO packages (id,name,description,price,capacity,reserved,paid,active,initials) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,price=excluded.price,capacity=MAX(excluded.capacity,packages.reserved+packages.paid),active=excluded.active,initials=excluded.initials").bind(p.id,p.name,p.description,p.price,p.capacity,p.reserved,p.paid,p.active?1:0,p.initials));
+    for(const p of state.packages) statements.push(d1.prepare("INSERT INTO packages (id,name,description,price,capacity,reserved,paid,active,initials,image_key) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,price=excluded.price,capacity=MAX(excluded.capacity,packages.reserved+packages.paid),active=excluded.active,initials=excluded.initials,image_key=excluded.image_key").bind(p.id,p.name,p.description,p.price,p.capacity,p.reserved,p.paid,p.active?1:0,p.initials,packageImageKey(p.imageKey)));
     statements.push(d1.prepare("INSERT INTO activity_log (id,actor_email,action,details,created_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),actor,"settings.update",null,new Date().toISOString()));
-    await d1.batch(statements); return Response.json({state:await loadState()});
+    await d1.batch(statements);
+    for (const p of state.packages) {
+      const previousKey = previousImageByPackage.get(p.id);
+      if (previousKey?.startsWith("package-image/") && previousKey !== packageImageKey(p.imageKey)) await env.UPLOADS.delete(previousKey);
+    }
+    return Response.json({state:await loadState()});
   } catch(error){return Response.json({error:error instanceof Error?error.message:"Could not save"},{status:500});}
 }

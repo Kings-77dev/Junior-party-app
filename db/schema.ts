@@ -12,6 +12,7 @@ export const packages = sqliteTable("packages", {
   id: text("id").primaryKey(), name: text("name").notNull(), description: text("description").notNull(),
   price: integer("price").notNull(), capacity: integer("capacity").notNull(), reserved: integer("reserved").notNull(),
   paid: integer("paid").notNull(), active: integer("active", { mode: "boolean" }).notNull(), initials: text("initials").notNull(),
+  imageKey: text("image_key"),
 });
 
 export const orders = sqliteTable("orders", {

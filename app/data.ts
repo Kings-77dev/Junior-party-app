@@ -18,6 +18,7 @@ export type Package = {
   paid: number;
   active: boolean;
   initials: string;
+  imageKey?: string | null;
   canDelete?: boolean;
 };
 

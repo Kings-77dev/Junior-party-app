@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { defaultState, packageCatalog, type AppState, type Order, type OrderStatus, type Package } from "./data";
 
 type GuestStep = "landing" | "details" | "packages" | "pay" | "proof" | "status";
@@ -9,6 +10,7 @@ type OrderFilter = "review" | "all";
 
 const guestSteps: GuestStep[] = ["details", "packages", "pay", "proof", "status"];
 const MAX_PROOF_SELECTION_BYTES = 10 * 1024 * 1024;
+const MAX_PACKAGE_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_PROOF_UPLOAD_BYTES = 850 * 1024;
 const PROOF_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -18,6 +20,14 @@ function money(value: number) {
 
 function remaining(pkg: Package) {
   return Math.max(0, pkg.capacity - pkg.reserved - pkg.paid);
+}
+
+function packageImageUrl(imageKey?: string | null, organizer = false) {
+  return imageKey ? `${organizer ? "/api/organizer/upload" : "/api/upload"}?key=${encodeURIComponent(imageKey)}` : "";
+}
+
+function PackageImage({ src, alt = "", sizes = "82px" }: { src: string; alt?: string; sizes?: string }) {
+  return <Image src={src} alt={alt} fill sizes={sizes} unoptimized />;
 }
 
 function cleanName(value: string) {
@@ -331,7 +341,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   }
 
   async function addPackage() {
-    const pkg: Package = { id: `package-${Date.now()}`, name: "New package", description: "Add package contents.", price: 1000, capacity: 5, reserved: 0, paid: 0, active: false, initials: "NP" };
+    const pkg: Package = { id: `package-${Date.now()}`, name: "New package", description: "Add package contents.", price: 1000, capacity: 5, reserved: 0, paid: 0, active: false, initials: "NP", imageKey: null };
     try {
       await persist({ ...data, packages: [pkg, ...data.packages] });
       showToast("New package added at the top of the list.");
@@ -417,7 +427,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                     {data.packages.filter((pkg) => pkg.active).map((pkg) => {
                       const left = remaining(pkg);
                       return <button key={pkg.id} className="prototype-package" disabled={left === 0} onClick={() => choosePackage(pkg)}>
-                        <span className={`prototype-art art-${pkg.id}`}><i className="mini-bottle" /><b>{pkg.initials}</b></span>
+                        <span className={`prototype-art art-${pkg.id}`}>{pkg.imageKey ? <PackageImage src={packageImageUrl(pkg.imageKey)} /> : <><i className="mini-bottle" /><b>{pkg.initials}</b></>}</span>
                         <span className="prototype-copy"><span><strong>{pkg.name}</strong><b>{money(pkg.price)}</b></span><small>{pkg.description}</small><span><em className={left <= 3 ? "low" : ""}>{left === 0 ? "Sold out" : left <= 3 ? `Only ${left} left` : `${left} left`}</em><u>{left === 0 ? "—" : "Select →"}</u></span></span>
                       </button>;
                     })}
@@ -431,7 +441,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
                   <div className="hold-chip">Hold · {holdTime}</div>
                   <p className="script-kicker">Almost yours…</p>
                   <h2>Pay with Mobile Money</h2>
-                  <div className="selected-strip"><span>{selectedPackage.initials}</span><div><small>{selectedPackage.name}</small><strong>{money(selectedPackage.price)}</strong></div></div>
+                  <div className="selected-strip"><span className={selectedPackage.imageKey ? "has-package-image" : ""}>{selectedPackage.imageKey ? <PackageImage src={packageImageUrl(selectedPackage.imageKey)} sizes="54px" /> : selectedPackage.initials}</span><div><small>{selectedPackage.name}</small><strong>{money(selectedPackage.price)}</strong></div></div>
                   <p className="field-caption">Choose a Mobile Money account</p>
                   <div className="network-grid">{data.paymentDestinations.filter((item) => item.enabled).map((item) => <button key={item.id} className={destination.id === item.id ? "active" : ""} onClick={() => setDestinationId(item.id)}><i className={`network-dot net-${item.network.split(" ")[0].toLowerCase()}`} />{item.label}</button>)}</div>
                   <div className="pay-destination"><small>Send exactly</small><strong>{money(selectedPackage.price)}</strong><span>to</span><b>{destination.number}</b><p>{destination.accountName}</p><button onClick={copyNumber}>{copied ? "Copied ✓" : "Copy number"}</button></div>
@@ -519,16 +529,52 @@ function PackageEditor({ pkg, onUpdate, onDelete }: { pkg: Package; onUpdate: (c
   const [draft, setDraft] = useState(pkg);
   const [editing, setEditing] = useState(pkg.name === "New package");
   const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [imageError, setImageError] = useState("");
   useEffect(() => setDraft(pkg), [pkg]);
+  useEffect(() => {
+    return () => { if (imagePreview) URL.revokeObjectURL(imagePreview); };
+  }, [imagePreview]);
   const left = remaining(draft);
-  const dirty = draft.name !== pkg.name || draft.description !== pkg.description || draft.price !== pkg.price || draft.capacity !== pkg.capacity || draft.active !== pkg.active;
+  const dirty = draft.name !== pkg.name || draft.description !== pkg.description || draft.price !== pkg.price || draft.capacity !== pkg.capacity || draft.active !== pkg.active || draft.imageKey !== pkg.imageKey || !!imageFile;
+  const displayedImage = imagePreview || packageImageUrl(draft.imageKey, true);
 
-  function cancelEditing() { setDraft(pkg); setEditing(false); }
+  function cancelEditing() { setDraft(pkg); setImageFile(null); setImagePreview(""); setImageError(""); setEditing(false); }
   async function saveChanges() {
     if (!dirty || saving) return;
     setSaving(true);
-    try { await onUpdate(draft); setEditing(false); }
+    let uploadedImageKey: string | null = null;
+    try {
+      let imageKey = draft.imageKey ?? null;
+      if (imageFile) {
+        const form = new FormData();
+        form.set("file", imageFile);
+        form.set("kind", "package-image");
+        const upload = await fetch("/api/organizer/upload", { method: "POST", body: form });
+        const uploaded = await upload.json().catch(() => ({})) as { key?: string; error?: string };
+        if (!upload.ok || !uploaded.key) throw new Error(uploaded.error ?? "Could not upload the package image.");
+        imageKey = uploaded.key;
+        uploadedImageKey = uploaded.key;
+      }
+      await onUpdate({ ...draft, imageKey });
+      setImageFile(null);
+      setImagePreview("");
+      setImageError("");
+      setEditing(false);
+    } catch (error) {
+      if (uploadedImageKey) await fetch(`/api/organizer/upload?key=${encodeURIComponent(uploadedImageKey)}`, { method: "DELETE" }).catch(() => undefined);
+      setImageError(error instanceof Error ? error.message : "Could not save the package image.");
+    }
     finally { setSaving(false); }
+  }
+  function selectImage(file: File | null) {
+    if (!file) return;
+    if (!PROOF_IMAGE_TYPES.includes(file.type)) throw new Error("Use a JPEG, PNG, or WebP image.");
+    if (file.size > MAX_PACKAGE_IMAGE_BYTES) throw new Error("Package image must be 10 MB or smaller.");
+    setImageError("");
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   }
   function markSoldOut() {
     if (left === 0 || !window.confirm(`Mark ${draft.name} as sold out?`)) return;
@@ -536,13 +582,19 @@ function PackageEditor({ pkg, onUpdate, onDelete }: { pkg: Package; onUpdate: (c
   }
 
   if (!editing) return <article className="mobile-package-editor package-summary-card">
-    <div className={`editor-art art-${pkg.id}`}><i className="mini-bottle" /><b>{pkg.initials}</b></div>
+    <div className={`editor-art art-${pkg.id}`}>{pkg.imageKey ? <PackageImage src={packageImageUrl(pkg.imageKey, true)} alt={`${pkg.name} package`} sizes="68px" /> : <><i className="mini-bottle" /><b>{pkg.initials}</b></>}</div>
     <div className="package-summary"><div><h2>{pkg.name}</h2><strong>{money(pkg.price)}</strong></div><p>{pkg.description}</p><div className="package-meta"><span>{remaining(pkg)} left</span><span className={pkg.active ? "is-visible" : "is-hidden"}>{pkg.active ? "Visible" : "Hidden"}</span></div></div>
     <button className="edit-package" onClick={() => setEditing(true)}>Edit package</button>
   </article>;
 
   return <article className="mobile-package-editor package-editing">
-    <div className="package-edit-header"><div className={`editor-art art-${draft.id}`}><i className="mini-bottle" /><b>{draft.initials}</b></div><div><small>Editing package</small><h2>{draft.name}</h2></div></div>
+    <div className="package-edit-header"><div className={`editor-art art-${draft.id}`}>{displayedImage ? <PackageImage src={displayedImage} alt="Package preview" sizes="68px" /> : <><i className="mini-bottle" /><b>{draft.initials}</b></>}</div><div><small>Editing package</small><h2>{draft.name}</h2></div></div>
+    <div className="package-image-editor">
+      <div><strong>Package image</strong><small>JPEG, PNG or WebP · up to 10 MB</small></div>
+      <label><span>{displayedImage ? "Replace image" : "Add custom image"}</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { try { selectImage(event.target.files?.[0] ?? null); } catch (error) { event.currentTarget.value = ""; setImageError(error instanceof Error ? error.message : "Could not use this image."); } }} /></label>
+      {displayedImage ? <button type="button" onClick={() => { setImageFile(null); setImagePreview(""); setDraft({ ...draft, imageKey: null }); }}>Remove image</button> : null}
+      {imageError ? <p role="alert">{imageError}</p> : null}
+    </div>
     <div className="editor-fields">
       <div className="editor-field-row"><label><span>Package name</span><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label><label className="price-field"><span>Price</span><div><b>GHS</b><input type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></div></label></div>
       <label><span>Package contents</span><textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>

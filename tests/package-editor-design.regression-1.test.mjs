@@ -24,3 +24,29 @@ test("package cards separate view, edit, save, and destructive states", async ()
   assert.match(stateRoute, /packageIdsWithOrders/);
   assert.match(css, /min-height: 44px/);
 });
+
+test("organizers can upload, replace, and remove package images shown to guests", async () => {
+  const [app, data, stateRoute, uploadRoute, organizerUpload, css, migration] = await Promise.all([
+    readFile(new URL("app/party-app.tsx", root), "utf8"),
+    readFile(new URL("app/data.ts", root), "utf8"),
+    readFile(new URL("app/api/state/route.ts", root), "utf8"),
+    readFile(new URL("app/api/upload/route.ts", root), "utf8"),
+    readFile(new URL("app/api/organizer/upload/route.ts", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
+    readFile(new URL("drizzle/0002_package_images.sql", root), "utf8"),
+  ]);
+
+  assert.match(data, /imageKey\?: string \| null/);
+  assert.match(app, /Add custom image/);
+  assert.match(app, /Replace image/);
+  assert.match(app, /Remove image/);
+  assert.match(app, /form\.set\("kind", "package-image"\)/);
+  assert.match(app, /packageImageUrl\(pkg\.imageKey\)/);
+  assert.match(uploadRoute, /package-image\//);
+  assert.match(uploadRoute, /Organizer access required/);
+  assert.match(organizerUpload, /DELETE, GET, POST/);
+  assert.match(stateRoute, /image_key/);
+  assert.match(stateRoute, /UPLOADS\.delete/);
+  assert.match(migration, /ADD `image_key` text/);
+  assert.match(css, /object-fit: cover/);
+});
