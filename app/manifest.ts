@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Midnight Reserve",
-    short_name: "Reserve",
-    description: "Party drinks reservations and Mobile Money verification.",
+    name: "SHH… It’s a Vibe! · VIP Experience",
+    short_name: "SHH… Vibe",
+    description: "Reserve a drinks package for SHH… It’s a Vibe at Sky Hype Lounge.",
     start_url: "/",
     display: "standalone",
     background_color: "#090a0b",

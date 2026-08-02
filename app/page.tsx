@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { PartyApp } from "./party-app";
 
 export const metadata: Metadata = {
-  title: "Midnight Reserve",
-  description: "Reserve a drinks package and submit your Mobile Money payment details.",
+  title: "SHH… It’s a Vibe! · VIP Experience",
+  description: "Reserve your drinks package for SHH… It’s a Vibe at Sky Hype Lounge, Bantama, Kumasi · Saturday 15 August 2026.",
 };
 
 export default function Home() {

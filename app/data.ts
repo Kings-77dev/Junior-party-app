@@ -136,9 +136,9 @@ export const defaultState: AppState = {
   organizerEmails: ["samueladjei162@gmail.com"],
   holds: [],
   event: {
-    name: "Midnight Reserve",
-    date: "Saturday · 8:00 PM",
-    location: "Accra",
+    name: "SHH… It’s a Vibe!",
+    date: "Saturday 15 August 2026 · 9 PM till late",
+    location: "Sky Hype Lounge · Bantama, Kumasi",
     message: "Your night, reserved. Choose your drinks package and secure your place.",
     whatsapp: "0557788343",
     reservationMinutes: 30,
