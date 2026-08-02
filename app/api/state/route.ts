@@ -52,7 +52,7 @@ async function loadState(): Promise<AppState> {
   const hRows = await d1.prepare("SELECT id,package_id,expires_at FROM inventory_holds").all<{id:string;package_id:string;expires_at:number}>();
   const packageIdsWithOrders = new Set(oRows.results.map((row) => String(row.package_id)));
   let config = cfg?.data ? JSON.parse(cfg.data) as Partial<AppState> : defaultState;
-  if ((config.configVersion ?? 0) < defaultState.configVersion) {
+  if ((config.configVersion ?? 0) < (defaultState.configVersion ?? 0)) {
     config = {
       ...config,
       configVersion: defaultState.configVersion,

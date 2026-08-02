@@ -149,7 +149,8 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   useEffect(() => {
     fetch("/api/state")
       .then((response) => response.json())
-      .then((payload: { state?: AppState }) => {
+      .then((value: unknown) => {
+        const payload = value as { state?: AppState };
         if (!payload.state) return;
         const next = migratePackageCatalog(payload.state);
         setData(next);
@@ -173,7 +174,10 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
       setHoldId(null);
       setExpiredNotice(true);
       setGuestStep("packages");
-      if (expiredHoldId) fetch("/api/state", { method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"release",holdId:expiredHoldId}) }).then(r=>r.json()).then(p=>p.state&&setData(p.state)).catch(()=>undefined);
+      if (expiredHoldId) fetch("/api/state", { method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"release",holdId:expiredHoldId}) }).then(r=>r.json()).then((value: unknown) => {
+        const payload = value as { state?: AppState };
+        if (payload.state) setData(payload.state);
+      }).catch(()=>undefined);
     }, 1000);
     return () => window.clearInterval(timer);
   }, [holdUntil, heldPackageId, holdId]);
