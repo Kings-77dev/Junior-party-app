@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import { defaultState, packageCatalog, type AppState, type Order, type OrderStatus, type Package } from "./data";
 
 type GuestStep = "landing" | "details" | "packages" | "pay" | "proof" | "status";
@@ -306,12 +306,12 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   }
 
   async function setOrderStatus(order: Order, status: "paid" | "unverified" | "resubmit") {
-    try { await runAction({action:"order-status",orderId:order.id,status,note:verificationNote.trim()}); showToast(status === "paid" ? "Payment confirmed and inventory updated." : status === "resubmit" ? "Guest marked for resubmission." : "Payment could not be verified."); }
+    try { await runAction({action:"order-status",orderId:order.id,status,note:verificationNote.trim()}); setSelectedOrderId(""); showToast(status === "paid" ? "Payment confirmed and inventory updated." : status === "resubmit" ? "Guest marked for resubmission." : "Payment could not be verified."); }
     catch(error){showToast(error instanceof Error?error.message:"Could not update order");}
   }
 
   async function cancelOrder(order: Order) {
-    try { await runAction({action:"order-status",orderId:order.id,status:"cancelled",note:verificationNote.trim()}); showToast("Order cancelled and inventory restored."); }
+    try { await runAction({action:"order-status",orderId:order.id,status:"cancelled",note:verificationNote.trim()}); setSelectedOrderId(""); showToast("Order cancelled and inventory restored."); }
     catch(error){showToast(error instanceof Error?error.message:"Could not cancel order");}
   }
 
@@ -347,6 +347,16 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
 
   function updateDestination(index: number, field: "number" | "accountName" | "enabled", value: string | boolean) {
     setData({ ...data, paymentDestinations: data.paymentDestinations.map((item, i) => i === index ? { ...item, [field]: value } : item) });
+  }
+
+  function renderOrderDetail(order: Order) {
+    return <article id={`order-detail-${order.id}`} className="mobile-order-detail">
+      <div className="detail-title"><button onClick={() => setSelectedOrderId("")}>Close details ↑</button><em className={`order-status status-${order.status}`}>{statusLabel(order.status)}</em></div>
+      <h2>{order.id}</h2>
+      <section><small>Guest</small><p><span>Name</span><b>{order.guestName}</b></p><p><span>Phone</span><b>{order.guestPhone}</b></p><p><span>Package</span><b>{order.packageName} · {money(order.amount)}</b></p></section>
+      <section><small>Submitted payment</small><p><span>Network</span><b>{order.network}</b></p><p><span>Transaction ID</span><b className="accent-text">{order.transactionId}</b></p><p><span>Name on payment</span><b>{order.payerName}</b></p><p><span>MoMo number</span><b>{order.senderPhone}</b></p>{order.screenshotKey ? <a className="proof-file" href={`/api/upload?key=${encodeURIComponent(order.screenshotKey)}`} target="_blank" rel="noreferrer">Open payment screenshot ↗</a> : <div className="proof-file">No payment screenshot attached</div>}</section>
+      {order.status === "awaiting" ? <><label>Verification note<textarea value={verificationNote} onChange={(event) => setVerificationNote(event.target.value)} placeholder="e.g. Matches MTN statement 21:14" /></label><div className="verification-actions"><button className="confirm" onClick={() => setOrderStatus(order, "paid")}>Confirm payment</button><div><button onClick={() => setOrderStatus(order, "unverified")}>Can&apos;t verify</button><button onClick={() => setOrderStatus(order, "resubmit")}>Ask to resubmit</button></div><button className="cancel" onClick={() => cancelOrder(order)}>Cancel order & restore inventory</button></div></> : <div className={`order-resolution resolution-${order.status}`}><strong>{statusLabel(order.status)}</strong><p>{orderStateMessage(order.status)}</p>{order.note ? <small>Note: {order.note}</small> : null}{order.status === "resubmit" ? <button onClick={() => cancelOrder(order)}>Cancel order & restore inventory</button> : null}</div>}
+    </article>;
   }
 
   if (surface === "guest") {
@@ -484,14 +494,10 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
             <div className="mobile-stats"><div><small>Confirmed</small><strong>{money(confirmedRevenue)}</strong></div><div><small>Pending</small><strong>{money(pendingRevenue)}</strong></div><div><small>Pkgs left</small><strong>{totalRemaining}</strong></div></div>
             <div className="order-filter"><button className={orderFilter === "review" ? "active" : ""} onClick={() => setOrderFilter("review")}>Needs review · {reviewOrders.length}</button><button className={orderFilter === "all" ? "active" : ""} onClick={() => setOrderFilter("all")}>All orders · {data.orders.length}</button></div>
             <input className="admin-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, phone, ref, package, transaction ID…" />
-            <div className="mobile-order-list">{visibleOrders.length ? visibleOrders.map((order) => <button key={order.id} className={selectedOrder?.id === order.id ? "selected" : ""} onClick={() => setSelectedOrderId(order.id)}><span><small>{order.id}</small><strong>{order.guestName}</strong></span><em className={`order-status status-${order.status}`}>{statusLabel(order.status)}</em><p>{order.packageName} · <b>{money(order.amount)}</b> · {order.network}<time>{order.submittedAt}</time></p></button>) : <div className="mobile-empty">No matching orders.</div>}</div>
-            {selectedOrder && <article className="mobile-order-detail">
-              <div className="detail-title"><button onClick={() => setSelectedOrderId("")}>← Queue</button><em className={`order-status status-${selectedOrder.status}`}>{statusLabel(selectedOrder.status)}</em></div>
-              <h2>{selectedOrder.id}</h2>
-              <section><small>Guest</small><p><span>Name</span><b>{selectedOrder.guestName}</b></p><p><span>Phone</span><b>{selectedOrder.guestPhone}</b></p><p><span>Package</span><b>{selectedOrder.packageName} · {money(selectedOrder.amount)}</b></p></section>
-              <section><small>Submitted payment</small><p><span>Network</span><b>{selectedOrder.network}</b></p><p><span>Transaction ID</span><b className="accent-text">{selectedOrder.transactionId}</b></p><p><span>Name on payment</span><b>{selectedOrder.payerName}</b></p><p><span>MoMo number</span><b>{selectedOrder.senderPhone}</b></p>{selectedOrder.screenshotKey ? <a className="proof-file" href={`/api/upload?key=${encodeURIComponent(selectedOrder.screenshotKey)}`} target="_blank" rel="noreferrer">Open payment screenshot ↗</a> : <div className="proof-file">No payment screenshot attached</div>}</section>
-              {selectedOrder.status === "awaiting" ? <><label>Verification note<textarea value={verificationNote} onChange={(event) => setVerificationNote(event.target.value)} placeholder="e.g. Matches MTN statement 21:14" /></label><div className="verification-actions"><button className="confirm" onClick={() => setOrderStatus(selectedOrder, "paid")}>Confirm payment</button><div><button onClick={() => setOrderStatus(selectedOrder, "unverified")}>Can&apos;t verify</button><button onClick={() => setOrderStatus(selectedOrder, "resubmit")}>Ask to resubmit</button></div><button className="cancel" onClick={() => cancelOrder(selectedOrder)}>Cancel order & restore inventory</button></div></> : <div className={`order-resolution resolution-${selectedOrder.status}`}><strong>{statusLabel(selectedOrder.status)}</strong><p>{orderStateMessage(selectedOrder.status)}</p>{selectedOrder.note ? <small>Note: {selectedOrder.note}</small> : null}{selectedOrder.status === "resubmit" ? <button onClick={() => cancelOrder(selectedOrder)}>Cancel order & restore inventory</button> : null}</div>}
-            </article>}
+            <div className="mobile-order-list">{visibleOrders.length ? visibleOrders.map((order) => {
+              const expanded = selectedOrder?.id === order.id;
+              return <Fragment key={order.id}><button className={expanded ? "selected" : ""} aria-expanded={expanded} aria-controls={`order-detail-${order.id}`} onClick={() => setSelectedOrderId((current) => current === order.id ? "" : order.id)}><span><small>{order.id}</small><strong>{order.guestName}</strong></span><em className={`order-status status-${order.status}`}>{statusLabel(order.status)}</em><p>{order.packageName} · <b>{money(order.amount)}</b> · {order.network}<time>{order.submittedAt}</time></p></button>{expanded ? renderOrderDetail(order) : null}</Fragment>;
+            }) : <div className="mobile-empty">No matching orders.</div>}</div>
           </div>}
 
           {adminTab === "packages" && <div className="admin-mobile-page"><div className="admin-heading"><div><p className="script-kicker">Drinks packages</p><h1>Manage packages</h1></div><button className="small-add" onClick={addPackage}>+ New</button></div><p className="supporting">Hidden packages do not show to guests. Quantity zero means sold out.</p><div className="mobile-package-admin">{[...data.packages].sort((a, b) => { const aNew = a.id.startsWith("package-"); const bNew = b.id.startsWith("package-"); if (aNew && bNew) return b.id.localeCompare(a.id); if (aNew) return -1; if (bNew) return 1; return 0; }).map((pkg) => <PackageEditor key={pkg.id} pkg={pkg} onUpdate={(changes) => updatePackage(pkg.id, changes)} onDelete={() => deletePackage(pkg)} />)}</div></div>}

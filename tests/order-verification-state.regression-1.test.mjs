@@ -13,9 +13,13 @@ test("shows payment decisions only for a selected awaiting order", async () => {
 
   assert.match(app, /useState\(""\).*selectedOrderId|selectedOrderId, setSelectedOrderId\] = useState\(""\)/s);
   assert.match(app, /data\.orders\.find\(\(order\) => order\.id === selectedOrderId\);/);
-  assert.match(app, /selectedOrder\.status === "awaiting"/);
+  assert.match(app, /order\.status === "awaiting"/);
+  assert.match(app, /current === order\.id \? "" : order\.id/);
+  assert.match(app, /expanded \? renderOrderDetail\(order\) : null/);
+  assert.match(app, /aria-expanded=\{expanded\}/);
   assert.match(app, /Waiting for the guest to send corrected payment details/);
   assert.match(app, /value=\{verificationNote\}/);
   assert.match(stateRoute, /UPDATE orders SET status=\?,note=\?,updated_at=\?/);
   assert.match(css, /\.verification-actions \.cancel \{ min-height: 44px/);
+  assert.match(css, /\.mobile-order-detail \{ margin: -4px 0 5px/);
 });
