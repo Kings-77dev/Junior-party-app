@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { PartyApp } from "./party-app";
 
 export const metadata: Metadata = {
-  title: "SHH… It’s a Vibe! · VIP Experience",
-  description: "Reserve your drinks package for SHH… It’s a Vibe at Sky Hype Lounge, Bantama, Kumasi · Saturday 15 August 2026.",
+  title: "VYRAL Entertainment | Events & VIP Reservations",
+  description: "Discover VYRAL events, reserve VIP drinks packages, and submit Mobile Money payment details securely.",
 };
 
 export default function Home() {

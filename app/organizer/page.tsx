@@ -5,7 +5,7 @@ import { PartyApp } from "../party-app";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Organizer Dashboard · SHH… It’s a Vibe!",
+  title: "Organizer Dashboard · VYRAL Entertainment",
   description: "Protected order, inventory, and event management.",
   robots: { index: false, follow: false },
 };

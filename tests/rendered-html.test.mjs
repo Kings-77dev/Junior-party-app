@@ -35,8 +35,8 @@ test("contains the complete guest and organizer product flows", async () => {
   assert.match(stateRoute, /paymentDestinations: defaultState\.paymentDestinations/);
   assert.match(app, /\/cdn-cgi\/access\/logout/);
   assert.match(app, /\/api\/organizer\/state/);
-  assert.match(layout, /SHH… It’s a Vibe/);
-  assert.match(layout, /og-vibe\.png/);
+  assert.match(layout, /VYRAL Entertainment/);
+  assert.match(layout, /og-vyral\.png/);
   assert.match(layout, /1200/);
   assert.match(layout, /630/);
   assert.match(css, /@media \(max-width: 560px\)/);
