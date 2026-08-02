@@ -108,6 +108,16 @@ export async function POST(request: Request) {
       const statements = [d1.prepare("UPDATE orders SET status=?,updated_at=? WHERE id=? AND status IN ('awaiting','resubmit')").bind(body.status,new Date().toISOString(),body.orderId),d1.prepare("INSERT INTO activity_log (id,actor_email,action,order_id,details,created_at) VALUES (?,?,?,?,?,?)").bind(crypto.randomUUID(),actor,`order.${body.status}`,body.orderId,null,new Date().toISOString())];
       if (["paid","unverified","cancelled"].includes(body.status)) statements.push(d1.prepare("UPDATE packages SET reserved=MAX(0,reserved-1),paid=paid+? WHERE id=?").bind(body.status==="paid"?1:0,order.package_id));
       await d1.batch(statements);
+    } else if (body.action === "delete-package") {
+      const actor = organizerEmail(request); if (!actor) return Response.json({error:"Organizer access required"},{status:403});
+      const pkg = await d1.prepare("SELECT name,reserved,paid FROM packages WHERE id=?").bind(body.packageId).first<{name:string;reserved:number;paid:number}>();
+      if (!pkg) return Response.json({error:"Package not found"},{status:404});
+      const order = await d1.prepare("SELECT id FROM orders WHERE package_id=? LIMIT 1").bind(body.packageId).first();
+      if (pkg.reserved > 0 || pkg.paid > 0 || order) return Response.json({error:"This package has reservations or order history. Hide it instead."},{status:409});
+      await d1.batch([
+        d1.prepare("DELETE FROM packages WHERE id=?").bind(body.packageId),
+        d1.prepare("INSERT INTO activity_log (id,actor_email,action,details,created_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),actor,"package.delete",JSON.stringify({packageId:body.packageId,name:pkg.name}),new Date().toISOString()),
+      ]);
     } else return Response.json({error:"Unknown action"},{status:400});
     const state=await loadState();
     return Response.json({ state: organizerEmail(request) ? state : publicState(state) });

@@ -285,9 +285,20 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
     await persist({ ...data, packages: data.packages.map((pkg) => pkg.id === id ? { ...pkg, ...changes } : pkg) });
   }
 
-  function addPackage() {
+  async function addPackage() {
     const pkg: Package = { id: `package-${Date.now()}`, name: "New package", description: "Add package contents.", price: 1000, capacity: 5, reserved: 0, paid: 0, active: false, initials: "NP" };
-    persist({ ...data, packages: [...data.packages, pkg] });
+    try {
+      await persist({ ...data, packages: [pkg, ...data.packages] });
+      showToast("New package added at the top of the list.");
+    } catch (error) { showToast(error instanceof Error ? error.message : "Could not add package"); }
+  }
+
+  async function deletePackage(pkg: Package) {
+    if (!window.confirm(`Delete ${pkg.name}? This cannot be undone.`)) return;
+    try {
+      await runAction({ action: "delete-package", packageId: pkg.id });
+      showToast(`${pkg.name} deleted.`);
+    } catch (error) { showToast(error instanceof Error ? error.message : "Could not delete package"); }
   }
 
   function updateEvent(field: keyof AppState["event"], value: string | number) {
@@ -442,7 +453,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
             </article>}
           </div>}
 
-          {adminTab === "packages" && <div className="admin-mobile-page"><div className="admin-heading"><div><p className="script-kicker">Drinks packages</p><h1>Manage packages</h1></div><button className="small-add" onClick={addPackage}>+ New</button></div><p className="supporting">Hidden packages do not show to guests. Quantity zero means sold out.</p><div className="mobile-package-admin">{data.packages.map((pkg) => <PackageEditor key={pkg.id} pkg={pkg} onUpdate={(changes) => updatePackage(pkg.id, changes)} />)}</div></div>}
+          {adminTab === "packages" && <div className="admin-mobile-page"><div className="admin-heading"><div><p className="script-kicker">Drinks packages</p><h1>Manage packages</h1></div><button className="small-add" onClick={addPackage}>+ New</button></div><p className="supporting">Hidden packages do not show to guests. Quantity zero means sold out.</p><div className="mobile-package-admin">{[...data.packages].sort((a, b) => { const aNew = a.id.startsWith("package-"); const bNew = b.id.startsWith("package-"); if (aNew && bNew) return b.id.localeCompare(a.id); if (aNew) return -1; if (bNew) return 1; return 0; }).map((pkg) => <PackageEditor key={pkg.id} pkg={pkg} onUpdate={(changes) => updatePackage(pkg.id, changes)} onDelete={() => deletePackage(pkg)} />)}</div></div>}
 
           {adminTab === "settings" && <div className="admin-mobile-page"><div className="admin-heading"><div><p className="script-kicker">Reusable event setup</p><h1>Event settings</h1></div></div><div className="mobile-settings-card"><h2>Event</h2><label>Party name<input value={data.event.name} onChange={(e) => updateEvent("name", e.target.value)} /></label><label>Date and time<input value={data.event.date} onChange={(e) => updateEvent("date", e.target.value)} /></label><label>Venue<input value={data.event.location} onChange={(e) => updateEvent("location", e.target.value)} /></label><label>Invitation message<textarea value={data.event.message} onChange={(e) => updateEvent("message", e.target.value)} /></label><div className="settings-pair"><label>Reservation hold<input type="number" min="5" max="120" value={data.event.reservationMinutes} onChange={(e) => updateEvent("reservationMinutes", Number(e.target.value))} /></label><label>WhatsApp contact<input value={data.event.whatsapp} onChange={(e) => updateEvent("whatsapp", e.target.value)} /></label></div></div><div className="mobile-settings-card"><h2>Payment destinations</h2>{data.paymentDestinations.map((item, index) => <div className="network-setting" key={item.id}><div><i className={`network-dot net-${item.network.split(" ")[0].toLowerCase()}`} /><strong>{item.label}</strong><label className="mini-toggle"><input type="checkbox" checked={item.enabled} onChange={(e) => updateDestination(index, "enabled", e.target.checked)} /><span /></label></div><input value={item.number} onChange={(e) => updateDestination(index, "number", e.target.value)} /><input value={item.accountName} onChange={(e) => updateDestination(index, "accountName", e.target.value)} /></div>)}<button className="vibe-primary" onClick={() => persist(data)}>Save event and payment settings</button></div></div>}
         </section>
@@ -452,9 +463,9 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   );
 }
 
-function PackageEditor({ pkg, onUpdate }: { pkg: Package; onUpdate: (changes: Partial<Package>) => void }) {
+function PackageEditor({ pkg, onUpdate, onDelete }: { pkg: Package; onUpdate: (changes: Partial<Package>) => void; onDelete: () => void }) {
   const [draft, setDraft] = useState(pkg);
   useEffect(() => setDraft(pkg), [pkg]);
   const left = remaining(draft);
-  return <article className="mobile-package-editor"><div className={`editor-art art-${draft.id}`}><i className="mini-bottle" /><b>{draft.initials}</b></div><div className="editor-fields"><div><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><label>GHS<input type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></label></div><input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></div><div className="editor-actions"><div><button onClick={() => setDraft({ ...draft, capacity: Math.max(draft.paid + draft.reserved, draft.capacity - 1) })}>−</button><strong>{left} left</strong><button onClick={() => setDraft({ ...draft, capacity: draft.capacity + 1 })}>+</button></div><label><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />{draft.active ? "Visible" : "Hidden"}</label><button onClick={() => setDraft({ ...draft, capacity: draft.paid + draft.reserved })}>Sell out</button><button className="save-package" onClick={() => onUpdate(draft)}>Save</button></div></article>;
+  return <article className="mobile-package-editor"><div className={`editor-art art-${draft.id}`}><i className="mini-bottle" /><b>{draft.initials}</b></div><div className="editor-fields"><div><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><label>GHS<input type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></label></div><input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></div><div className="editor-actions"><div><button onClick={() => setDraft({ ...draft, capacity: Math.max(draft.paid + draft.reserved, draft.capacity - 1) })}>−</button><strong>{left} left</strong><button onClick={() => setDraft({ ...draft, capacity: draft.capacity + 1 })}>+</button></div><label><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />{draft.active ? "Visible" : "Hidden"}</label><button onClick={() => setDraft({ ...draft, capacity: draft.paid + draft.reserved })}>Sell out</button><button className="delete-package" onClick={onDelete} aria-label={`Delete ${draft.name}`}>Delete</button><button className="save-package" onClick={() => onUpdate(draft)}>Save</button></div></article>;
 }

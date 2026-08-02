@@ -32,3 +32,19 @@ test("shows the organizer contact after package selection and order submission",
   assert.match(app, /WhatsApp organizer · \{data\.event\.whatsapp\}/);
   assert.match(app, /233\$\{digits\.slice\(1\)\}/);
 });
+
+// Regression: organizer-created packages could not be removed and appeared last.
+test("lets organizers delete unused packages and keeps new packages first", async () => {
+  const [app, stateRoute] = await Promise.all([
+    readFile(new URL("app/party-app.tsx", root), "utf8"),
+    readFile(new URL("app/api/state/route.ts", root), "utf8"),
+  ]);
+
+  assert.match(app, /packages: \[pkg, \.\.\.data\.packages\]/);
+  assert.match(app, /b\.id\.localeCompare\(a\.id\)/);
+  assert.match(app, /Delete \$\{pkg\.name\}\?/);
+  assert.match(app, /action: "delete-package"/);
+  assert.match(stateRoute, /body\.action === "delete-package"/);
+  assert.match(stateRoute, /This package has reservations or order history\. Hide it instead\./);
+  assert.match(stateRoute, /DELETE FROM packages WHERE id=\?/);
+});
