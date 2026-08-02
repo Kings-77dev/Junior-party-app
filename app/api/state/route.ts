@@ -110,7 +110,8 @@ export async function POST(request: Request) {
       const order = await d1.prepare("SELECT package_id,status FROM orders WHERE id=?").bind(body.orderId).first<{package_id:string;status:string}>();
       if (!order) return Response.json({error:"Order not found"},{status:404});
       if (!["awaiting","resubmit"].includes(order.status)) return Response.json({error:"Order was already processed"},{status:409});
-      const statements = [d1.prepare("UPDATE orders SET status=?,updated_at=? WHERE id=? AND status IN ('awaiting','resubmit')").bind(body.status,new Date().toISOString(),body.orderId),d1.prepare("INSERT INTO activity_log (id,actor_email,action,order_id,details,created_at) VALUES (?,?,?,?,?,?)").bind(crypto.randomUUID(),actor,`order.${body.status}`,body.orderId,null,new Date().toISOString())];
+      const note = typeof body.note === "string" ? body.note.trim().slice(0,500) : null;
+      const statements = [d1.prepare("UPDATE orders SET status=?,note=?,updated_at=? WHERE id=? AND status IN ('awaiting','resubmit')").bind(body.status,note,new Date().toISOString(),body.orderId),d1.prepare("INSERT INTO activity_log (id,actor_email,action,order_id,details,created_at) VALUES (?,?,?,?,?,?)").bind(crypto.randomUUID(),actor,`order.${body.status}`,body.orderId,note ? JSON.stringify({note}) : null,new Date().toISOString())];
       if (["paid","unverified","cancelled"].includes(body.status)) statements.push(d1.prepare("UPDATE packages SET reserved=MAX(0,reserved-1),paid=paid+? WHERE id=?").bind(body.status==="paid"?1:0,order.package_id));
       await d1.batch(statements);
     } else if (body.action === "delete-package") {

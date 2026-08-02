@@ -82,6 +82,15 @@ function statusLabel(status: OrderStatus) {
   return labels[status];
 }
 
+function orderStateMessage(status: OrderStatus) {
+  if (status === "paid") return "Payment confirmed. Revenue and inventory have been updated.";
+  if (status === "unverified") return "Payment could not be verified. This order is closed.";
+  if (status === "cancelled") return "Order cancelled. Reserved inventory has been restored.";
+  if (status === "expired") return "This reservation expired before payment was confirmed.";
+  if (status === "resubmit") return "Waiting for the guest to send corrected payment details.";
+  return "No payment decision is available for this order.";
+}
+
 function migratePackageCatalog(state: AppState): AppState {
   let next = state;
   if ((state.catalogVersion ?? 0) < 2) {
@@ -129,7 +138,8 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
-  const [selectedOrderId, setSelectedOrderId] = useState("MR-A7K9");
+  const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [verificationNote, setVerificationNote] = useState("");
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("review");
   const [query, setQuery] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -169,17 +179,19 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   }, [holdUntil, heldPackageId, holdId]);
 
   const selectedPackage = data.packages.find((pkg) => pkg.id === selectedPackageId) ?? data.packages[0];
-  const selectedOrder = data.orders.find((order) => order.id === selectedOrderId) ?? data.orders[0];
+  const selectedOrder = data.orders.find((order) => order.id === selectedOrderId);
   const destination = data.paymentDestinations.find((item) => item.id === destinationId && item.enabled)
     ?? data.paymentDestinations.find((item) => item.enabled)
     ?? data.paymentDestinations[0];
-  const reviewOrders = data.orders.filter((order) => order.status === "awaiting" || order.status === "resubmit");
+  const reviewOrders = data.orders.filter((order) => order.status === "awaiting");
   const confirmedRevenue = data.orders.filter((order) => order.status === "paid").reduce((sum, order) => sum + order.amount, 0);
   const pendingRevenue = reviewOrders.reduce((sum, order) => sum + order.amount, 0);
   const totalRemaining = data.packages.reduce((sum, pkg) => sum + remaining(pkg), 0);
   const progress = Math.max(0, guestSteps.indexOf(guestStep));
   const holdMs = holdUntil ? Math.max(0, holdUntil - clock) : 0;
   const holdTime = `${Math.floor(holdMs / 60000)}:${String(Math.floor((holdMs % 60000) / 1000)).padStart(2, "0")}`;
+
+  useEffect(() => setVerificationNote(selectedOrder?.note ?? ""), [selectedOrder?.id, selectedOrder?.note]);
 
   const visibleOrders = useMemo(() => {
     const base = orderFilter === "review" ? reviewOrders : data.orders;
@@ -294,12 +306,12 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
   }
 
   async function setOrderStatus(order: Order, status: "paid" | "unverified" | "resubmit") {
-    try { await runAction({action:"order-status",orderId:order.id,status}); showToast(status === "paid" ? "Payment confirmed and inventory updated." : status === "resubmit" ? "Guest marked for resubmission." : "Payment could not be verified."); }
+    try { await runAction({action:"order-status",orderId:order.id,status,note:verificationNote.trim()}); showToast(status === "paid" ? "Payment confirmed and inventory updated." : status === "resubmit" ? "Guest marked for resubmission." : "Payment could not be verified."); }
     catch(error){showToast(error instanceof Error?error.message:"Could not update order");}
   }
 
   async function cancelOrder(order: Order) {
-    try { await runAction({action:"order-status",orderId:order.id,status:"cancelled"}); showToast("Order cancelled and inventory restored."); }
+    try { await runAction({action:"order-status",orderId:order.id,status:"cancelled",note:verificationNote.trim()}); showToast("Order cancelled and inventory restored."); }
     catch(error){showToast(error instanceof Error?error.message:"Could not cancel order");}
   }
 
@@ -478,8 +490,7 @@ export function PartyApp({ initialUserEmail = null, surface = "guest" }: { initi
               <h2>{selectedOrder.id}</h2>
               <section><small>Guest</small><p><span>Name</span><b>{selectedOrder.guestName}</b></p><p><span>Phone</span><b>{selectedOrder.guestPhone}</b></p><p><span>Package</span><b>{selectedOrder.packageName} · {money(selectedOrder.amount)}</b></p></section>
               <section><small>Submitted payment</small><p><span>Network</span><b>{selectedOrder.network}</b></p><p><span>Transaction ID</span><b className="accent-text">{selectedOrder.transactionId}</b></p><p><span>Name on payment</span><b>{selectedOrder.payerName}</b></p><p><span>MoMo number</span><b>{selectedOrder.senderPhone}</b></p>{selectedOrder.screenshotKey ? <a className="proof-file" href={`/api/upload?key=${encodeURIComponent(selectedOrder.screenshotKey)}`} target="_blank" rel="noreferrer">Open payment screenshot ↗</a> : <div className="proof-file">No payment screenshot attached</div>}</section>
-              <label>Verification note<textarea placeholder="e.g. Matches MTN statement 21:14" /></label>
-              <div className="verification-actions"><button className="confirm" onClick={() => setOrderStatus(selectedOrder, "paid")}>Confirm payment</button><div><button onClick={() => setOrderStatus(selectedOrder, "unverified")}>Can&apos;t verify</button><button onClick={() => setOrderStatus(selectedOrder, "resubmit")}>Ask to resubmit</button></div><button className="cancel" onClick={() => cancelOrder(selectedOrder)}>Cancel order & restore inventory</button></div>
+              {selectedOrder.status === "awaiting" ? <><label>Verification note<textarea value={verificationNote} onChange={(event) => setVerificationNote(event.target.value)} placeholder="e.g. Matches MTN statement 21:14" /></label><div className="verification-actions"><button className="confirm" onClick={() => setOrderStatus(selectedOrder, "paid")}>Confirm payment</button><div><button onClick={() => setOrderStatus(selectedOrder, "unverified")}>Can&apos;t verify</button><button onClick={() => setOrderStatus(selectedOrder, "resubmit")}>Ask to resubmit</button></div><button className="cancel" onClick={() => cancelOrder(selectedOrder)}>Cancel order & restore inventory</button></div></> : <div className={`order-resolution resolution-${selectedOrder.status}`}><strong>{statusLabel(selectedOrder.status)}</strong><p>{orderStateMessage(selectedOrder.status)}</p>{selectedOrder.note ? <small>Note: {selectedOrder.note}</small> : null}{selectedOrder.status === "resubmit" ? <button onClick={() => cancelOrder(selectedOrder)}>Cancel order & restore inventory</button> : null}</div>}
             </article>}
           </div>}
 
